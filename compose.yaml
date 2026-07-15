@@ -1,9 +1,20 @@
 services:
   postgres:
-    image: 'postgres:latest'
+    image: postgres:16-alpine
+    container_name: gym-crm-postgres
     environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
+      POSTGRES_DB: gym_crm
+      POSTGRES_USER: gym_user
+      POSTGRES_PASSWORD: gym_password
     ports:
-      - '5432'
+      - "5432:5432"
+    volumes:
+      - gym_crm_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gym_user -d gym_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  gym_crm_data:

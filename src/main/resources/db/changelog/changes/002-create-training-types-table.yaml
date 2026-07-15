@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-training-types-table
+      author: khram0v
+      changes:
+        - createTable:
+            tableName: training_types
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: training_type_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
