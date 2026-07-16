@@ -22,7 +22,7 @@ public final class TrainingSpecification {
 
     public static Specification<Training> dateFrom(LocalDate from) {
         if (from == null) {
-            return null;
+            return Specification.unrestricted();
         }
         return (root, query, cb) ->
                 cb.greaterThanOrEqualTo(root.get("trainingDate"), from);
@@ -30,7 +30,7 @@ public final class TrainingSpecification {
 
     public static Specification<Training> dateTo(LocalDate to) {
         if (to == null) {
-            return null;
+            return Specification.unrestricted();
         }
         return (root, query, cb) ->
                 cb.lessThanOrEqualTo(root.get("trainingDate"), to);
@@ -38,7 +38,7 @@ public final class TrainingSpecification {
 
     public static Specification<Training> trainerFirstName(String firstName) {
         if (firstName == null || firstName.isBlank()) {
-            return null;
+            return Specification.unrestricted();
         }
         return (root, query, cb) ->
                 cb.equal(root.join("trainer").get("firstName"), firstName);
@@ -46,7 +46,7 @@ public final class TrainingSpecification {
 
     public static Specification<Training> trainerLastName(String lastName) {
         if (lastName == null || lastName.isBlank()) {
-            return null;
+            return Specification.unrestricted();
         }
         return (root, query, cb) ->
                 cb.equal(root.join("trainer").get("lastName"), lastName);
@@ -54,7 +54,7 @@ public final class TrainingSpecification {
 
     public static Specification<Training> traineeFirstName(String firstName) {
         if (firstName == null || firstName.isBlank()) {
-            return null;
+            return Specification.unrestricted();
         }
         return (root, query, cb) ->
                 cb.equal(root.join("trainee").get("firstName"), firstName);
@@ -62,7 +62,7 @@ public final class TrainingSpecification {
 
     public static Specification<Training> traineeLastName(String lastName) {
         if (lastName == null || lastName.isBlank()) {
-            return null;
+            return Specification.unrestricted();
         }
         return (root, query, cb) ->
                 cb.equal(root.join("trainee").get("lastName"), lastName);
@@ -70,7 +70,7 @@ public final class TrainingSpecification {
 
     public static Specification<Training> trainingTypeName(String typeName) {
         if (typeName == null || typeName.isBlank()) {
-            return null;
+            return Specification.unrestricted();
         }
         return (root, query, cb) ->
                 cb.equal(root.join("trainingType").get("trainingTypeName"), typeName);
