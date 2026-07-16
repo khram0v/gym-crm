@@ -1,0 +1,36 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-create-trainee-trainer-table
+      author: khram0v
+      changes:
+        - createTable:
+            tableName: trainee_trainer
+            columns:
+              - column:
+                  name: trainee_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: trainer_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: trainee_trainer
+            columnNames: trainee_id, trainer_id
+            constraintName: pk_trainee_trainer
+        - addForeignKeyConstraint:
+            baseTableName: trainee_trainer
+            baseColumnNames: trainee_id
+            referencedTableName: trainees
+            referencedColumnNames: user_id
+            constraintName: fk_tt_trainee
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: trainee_trainer
+            baseColumnNames: trainer_id
+            referencedTableName: trainers
+            referencedColumnNames: user_id
+            constraintName: fk_tt_trainer
+            onDelete: CASCADE

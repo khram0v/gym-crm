@@ -1,0 +1,35 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-seed-training-types
+      author: khram0v
+      changes:
+        - insert:
+            tableName: training_types
+            columns:
+              - column:
+                  name: training_type_name
+                  value: Fitness
+        - insert:
+            tableName: training_types
+            columns:
+              - column:
+                  name: training_type_name
+                  value: Yoga
+        - insert:
+            tableName: training_types
+            columns:
+              - column:
+                  name: training_type_name
+                  value: Pilates
+        - insert:
+            tableName: training_types
+            columns:
+              - column:
+                  name: training_type_name
+                  value: Stretching
+        - insert:
+            tableName: training_types
+            columns:
+              - column:
+                  name: training_type_name
+                  value: Boxing

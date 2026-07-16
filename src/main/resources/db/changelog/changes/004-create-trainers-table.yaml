@@ -1,0 +1,32 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-create-trainers-table
+      author: khram0v
+      changes:
+        - createTable:
+            tableName: trainers
+            columns:
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: specialization_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: trainers
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_trainer_user
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: trainers
+            baseColumnNames: specialization_id
+            referencedTableName: training_types
+            referencedColumnNames: id
+            constraintName: fk_trainer_specialization
