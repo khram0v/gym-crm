@@ -8,6 +8,12 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 2
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
   jpa:
     hibernate:
       ddl-auto: validate
