@@ -21,10 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class TrainerServiceImplTest {
@@ -119,38 +116,27 @@ class TrainerServiceImplTest {
         verify(trainerRepository, never()).save(any());
     }
 
-    // ~~~~~ updateProfile ~~~~~
+    // ~~~~~ updateProfile (specialization NOT changed; active included) ~~~~~
 
     @Test
-    void updateProfile_updatesFieldsAndSpecialization_andSaves() {
+    void updateProfile_updatesFieldsAndActive_doesNotTouchSpecialization_andSaves() {
         when(trainerRepository.findByUsername("Jane.Smith")).thenReturn(Optional.of(existingTrainer));
-        TrainingType newSpec = new TrainingType("Boxing");
-        when(trainingTypeRepository.findById(2L)).thenReturn(Optional.of(newSpec));
         when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Trainer result = trainerService.updateProfile("Jane.Smith", "Janet", "Smith", 2L);
+        Trainer result = trainerService.updateProfile("Jane.Smith", "Janet", "Smith", false);
 
         assertThat(result.getFirstName()).isEqualTo("Janet");
-        assertThat(result.getSpecialization()).isSameAs(newSpec);
+        assertThat(result.isActive()).isFalse();
+        assertThat(result.getSpecialization()).isSameAs(fitness);
         verify(trainerRepository).save(existingTrainer);
-    }
-
-    @Test
-    void updateProfile_whenSpecializationNotFound_throwsAndDoesNotSave() {
-        when(trainerRepository.findByUsername("Jane.Smith")).thenReturn(Optional.of(existingTrainer));
-        when(trainingTypeRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> trainerService.updateProfile("Jane.Smith", "A", "B", 99L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Training type not found: 99");
-        verify(trainerRepository, never()).save(any());
+        verifyNoInteractions(trainingTypeRepository);
     }
 
     @Test
     void updateProfile_whenTrainerNotFound_throwsAndDoesNotSave() {
         when(trainerRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> trainerService.updateProfile("Ghost", "A", "B", 1L))
+        assertThatThrownBy(() -> trainerService.updateProfile("Ghost", "A", "B", true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Trainer not found: Ghost");
         verify(trainerRepository, never()).save(any());

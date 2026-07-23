@@ -10,7 +10,7 @@ public interface TrainerService {
 
     void changePassword(String username, String oldPassword, String newPassword);
 
-    Trainer updateProfile(String username, String firstName, String lastName, Long specializationId);
+    Trainer updateProfile(String username, String firstName, String lastName, boolean active);
 
     void setActiveStatus(String username, boolean active);
 }

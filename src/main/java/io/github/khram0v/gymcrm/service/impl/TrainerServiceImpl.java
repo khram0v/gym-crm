@@ -62,14 +62,12 @@ public class TrainerServiceImpl implements TrainerService {
 
     @Override
     @Transactional
-    public Trainer updateProfile(String username, String firstName, String lastName, Long specializationId) {
+    public Trainer updateProfile(String username, String firstName, String lastName, boolean active) {
         Trainer trainer = trainerRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("Trainer not found: " + username));
-        TrainingType specialization = trainingTypeRepository.findById(specializationId)
-                .orElseThrow(() -> new IllegalArgumentException("Training type not found: " + specializationId));
         trainer.setFirstName(firstName);
         trainer.setLastName(lastName);
-        trainer.setSpecialization(specialization);
+        trainer.setActive(active);
 
         Trainer saved = trainerRepository.save(trainer);
         log.info("Updated profile for trainer '{}'", username);

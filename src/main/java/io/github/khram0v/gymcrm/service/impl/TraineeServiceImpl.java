@@ -67,13 +67,15 @@ public class TraineeServiceImpl implements TraineeService {
                                  String firstName,
                                  String lastName,
                                  LocalDate dateOfBirth,
-                                 String address) {
+                                 String address,
+                                 boolean active) {
         Trainee trainee = traineeRepository.findByUsername(username)
                         .orElseThrow(() -> new IllegalArgumentException("Trainee not found: " + username));
         trainee.setFirstName(firstName);
         trainee.setLastName(lastName);
         trainee.setDateOfBirth(dateOfBirth);
         trainee.setAddress(address);
+        trainee.setActive(active);
 
         Trainee saved = traineeRepository.save(trainee);
         log.info("Updated profile for trainee '{}'", username);

@@ -115,19 +115,20 @@ class TraineeServiceImplTest {
         verify(traineeRepository, never()).save(any());
     }
 
-    // ~~~~~ updateProfile ~~~~~
+    // ~~~~~ updateProfile (now includes active) ~~~~~
 
     @Test
-    void updateProfile_updatesFields_andSaves() {
+    void updateProfile_updatesFieldsIncludingActive_andSaves() {
         when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(existingTrainee));
         when(traineeRepository.save(any(Trainee.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Trainee result = traineeService.updateProfile(
-                "John.Doe", "Johnny", "Doe", LocalDate.of(1999, Month.MAY, 5), "New Address");
+                "John.Doe", "Johnny", "Doe", LocalDate.of(1999, Month.MAY, 5), "New Address", false);
 
         assertThat(result.getFirstName()).isEqualTo("Johnny");
         assertThat(result.getDateOfBirth()).isEqualTo(LocalDate.of(1999, Month.MAY, 5));
         assertThat(result.getAddress()).isEqualTo("New Address");
+        assertThat(result.isActive()).isFalse();
         verify(traineeRepository).save(existingTrainee);
     }
 
@@ -135,7 +136,7 @@ class TraineeServiceImplTest {
     void updateProfile_whenNotFound_throwsAndDoesNotSave() {
         when(traineeRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> traineeService.updateProfile("Ghost", "A", "B", null, null))
+        assertThatThrownBy(() -> traineeService.updateProfile("Ghost", "A", "B", null, null, true))
                 .isInstanceOf(IllegalArgumentException.class);
         verify(traineeRepository, never()).save(any());
     }

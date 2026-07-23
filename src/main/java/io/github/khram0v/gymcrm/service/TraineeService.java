@@ -19,7 +19,8 @@ public interface TraineeService {
                           String firstName,
                           String lastName,
                           LocalDate dateOfBirth,
-                          String address);
+                          String address,
+                          boolean active);
 
     void setActiveStatus(String username, boolean active);
 
