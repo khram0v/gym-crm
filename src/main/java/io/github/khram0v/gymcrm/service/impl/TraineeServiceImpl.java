@@ -1,5 +1,7 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.exception.ConflictException;
+import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.repository.TraineeRepository;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
 import io.github.khram0v.gymcrm.model.Trainee;
@@ -14,7 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.*;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,7 +48,7 @@ public class TraineeServiceImpl implements TraineeService {
     @Transactional(readOnly = true)
     public Trainee getByUsername(String username) {
         return traineeRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Trainee not found: " + username));
+                .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
     }
 
     @Override
@@ -54,7 +57,7 @@ public class TraineeServiceImpl implements TraineeService {
         authService.authenticate(username, oldPassword);
 
         Trainee trainee = traineeRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Trainee not found: " + username));
+                .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
         trainee.setPassword(newPassword);
 
         traineeRepository.save(trainee);
@@ -70,7 +73,7 @@ public class TraineeServiceImpl implements TraineeService {
                                  String address,
                                  boolean active) {
         Trainee trainee = traineeRepository.findByUsername(username)
-                        .orElseThrow(() -> new IllegalArgumentException("Trainee not found: " + username));
+                        .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
         trainee.setFirstName(firstName);
         trainee.setLastName(lastName);
         trainee.setDateOfBirth(dateOfBirth);
@@ -86,10 +89,10 @@ public class TraineeServiceImpl implements TraineeService {
     @Transactional
     public void setActiveStatus(String username, boolean active) {
         Trainee trainee = traineeRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Trainee not found: " + username));
+                .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
 
         if (trainee.isActive() == active) {
-            throw new IllegalArgumentException(
+            throw new ConflictException(
                     "Trainee '" + username + "' is already " + (active ? "active" : "inactive"));
         }
         trainee.setActive(active);
@@ -102,7 +105,7 @@ public class TraineeServiceImpl implements TraineeService {
     @Transactional
     public void deleteByUsername(String username) {
         Trainee trainee = traineeRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Trainee not found: " + username));
+                .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
         traineeRepository.delete(trainee);
         log.info("Deleted trainee '{}'", username);
     }
@@ -111,7 +114,7 @@ public class TraineeServiceImpl implements TraineeService {
     @Transactional(readOnly = true)
     public Set<Trainer> getUnassignedTrainers(String username) {
         if (!traineeRepository.existsByUsername(username)) {
-            throw new IllegalArgumentException("Trainee not found: " + username);
+            throw new NotFoundException("Trainee not found: " + username);
         }
 
         return traineeRepository.findUnassignedTrainers(username);
@@ -121,11 +124,11 @@ public class TraineeServiceImpl implements TraineeService {
     @Transactional
     public Set<Trainer> updateTrainers(String username, List<String> trainerUsernames) {
         Trainee trainee = traineeRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Trainee not found: " + username));
+                .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
 
         Set<Trainer> trainers = trainerUsernames.stream()
                 .map(u -> trainerRepository.findByUsername(u)
-                        .orElseThrow(() -> new IllegalArgumentException("Trainer not found: " + u)))
+                        .orElseThrow(() -> new NotFoundException("Trainer not found: " + u)))
                 .collect(Collectors.toSet());
         trainee.setTrainers(trainers);
 

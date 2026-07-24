@@ -1,5 +1,6 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.repository.TrainingTypeRepository;
 import io.github.khram0v.gymcrm.model.TrainingType;
 import io.github.khram0v.gymcrm.service.TrainingTypeService;
@@ -25,6 +26,6 @@ public class TrainingTypeServiceImpl implements TrainingTypeService {
     @Transactional(readOnly = true)
     public TrainingType getById(Long id) {
         return trainingTypeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Training type not found: " + id));
+                .orElseThrow(() -> new NotFoundException("Training type not found: " + id));
     }
 }

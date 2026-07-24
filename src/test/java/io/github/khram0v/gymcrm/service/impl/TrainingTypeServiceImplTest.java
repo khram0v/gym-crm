@@ -1,5 +1,6 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.model.TrainingType;
 import io.github.khram0v.gymcrm.repository.TrainingTypeRepository;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ class TrainingTypeServiceImplTest {
         when(trainingTypeRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> trainingTypeService.getById(99L))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Training type not found: 99");
     }
 }

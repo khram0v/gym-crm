@@ -1,5 +1,6 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.repository.TraineeRepository;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
 import io.github.khram0v.gymcrm.repository.TrainingRepository;
@@ -34,9 +35,9 @@ public class TrainingServiceImpl implements TrainingService {
                                 LocalDate trainingDate,
                                 Integer duration) {
         Trainer trainer = trainerRepository.findByUsername(trainerUsername)
-                .orElseThrow(() -> new IllegalArgumentException("Trainer not found: " + trainerUsername));
+                .orElseThrow(() -> new NotFoundException("Trainer not found: " + trainerUsername));
         Trainee trainee = traineeRepository.findByUsername(traineeUsername)
-                .orElseThrow(() -> new IllegalArgumentException("Trainee not found: " + traineeUsername));
+                .orElseThrow(() -> new NotFoundException("Trainee not found: " + traineeUsername));
 
         Training training = new Training(trainee, trainer, trainingName,
                 trainer.getSpecialization(), trainingDate, duration);

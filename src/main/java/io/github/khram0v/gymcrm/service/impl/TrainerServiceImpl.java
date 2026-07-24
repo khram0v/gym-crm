@@ -1,5 +1,7 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.exception.ConflictException;
+import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
 import io.github.khram0v.gymcrm.repository.TrainingTypeRepository;
 import io.github.khram0v.gymcrm.model.Trainer;
@@ -28,7 +30,7 @@ public class TrainerServiceImpl implements TrainerService {
     @Transactional
     public Trainer create(String firstName, String lastName, Long specializationId) {
         TrainingType specialization = trainingTypeRepository.findById(specializationId)
-                .orElseThrow(() -> new IllegalArgumentException("Training type not found: " + specializationId));
+                .orElseThrow(() -> new NotFoundException("Training type not found: " + specializationId));
 
         Trainer trainer = new Trainer(firstName, lastName, specialization);
         trainer.setUsername(credentialsGenerator.generateUsername(firstName, lastName, usernameRegistry::exists));
@@ -44,7 +46,7 @@ public class TrainerServiceImpl implements TrainerService {
     @Transactional(readOnly = true)
     public Trainer getByUsername(String username) {
         return trainerRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Trainer not found: " + username));
+                .orElseThrow(() -> new NotFoundException("Trainer not found: " + username));
     }
 
     @Override
@@ -53,7 +55,7 @@ public class TrainerServiceImpl implements TrainerService {
         authService.authenticate(username, oldPassword);
 
         Trainer trainer = trainerRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Trainer not found: " + username));
+                .orElseThrow(() -> new NotFoundException("Trainer not found: " + username));
         trainer.setPassword(newPassword);
 
         trainerRepository.save(trainer);
@@ -64,7 +66,7 @@ public class TrainerServiceImpl implements TrainerService {
     @Transactional
     public Trainer updateProfile(String username, String firstName, String lastName, boolean active) {
         Trainer trainer = trainerRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Trainer not found: " + username));
+                .orElseThrow(() -> new NotFoundException("Trainer not found: " + username));
         trainer.setFirstName(firstName);
         trainer.setLastName(lastName);
         trainer.setActive(active);
@@ -78,10 +80,10 @@ public class TrainerServiceImpl implements TrainerService {
     @Transactional
     public void setActiveStatus(String username, boolean active) {
         Trainer trainer = trainerRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Trainer not found: " + username));
+                .orElseThrow(() -> new NotFoundException("Trainer not found: " + username));
 
         if (trainer.isActive() == active) {
-            throw new IllegalArgumentException(
+            throw new ConflictException(
                     "Trainer '" + username + "' is already " + (active ? "active" : "inactive"));
         }
         trainer.setActive(active);

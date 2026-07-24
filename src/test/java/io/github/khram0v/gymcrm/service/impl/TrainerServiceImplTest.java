@@ -1,6 +1,8 @@
 package io.github.khram0v.gymcrm.service.impl;
 
 import io.github.khram0v.gymcrm.exception.AuthenticationException;
+import io.github.khram0v.gymcrm.exception.ConflictException;
+import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.model.TrainingType;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
@@ -69,7 +71,7 @@ class TrainerServiceImplTest {
         when(trainingTypeRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> trainerService.create("Kate", "Novak", 99L))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Training type not found: 99");
         verify(trainerRepository, never()).save(any());
     }
@@ -88,7 +90,7 @@ class TrainerServiceImplTest {
         when(trainerRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> trainerService.getByUsername("Ghost"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainer not found: Ghost");
     }
 
@@ -116,7 +118,7 @@ class TrainerServiceImplTest {
         verify(trainerRepository, never()).save(any());
     }
 
-    // ~~~~~ updateProfile (specialization NOT changed; active included) ~~~~~
+    // ~~~~~ updateProfile ~~~~~
 
     @Test
     void updateProfile_updatesFieldsAndActive_doesNotTouchSpecialization_andSaves() {
@@ -137,7 +139,7 @@ class TrainerServiceImplTest {
         when(trainerRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> trainerService.updateProfile("Ghost", "A", "B", true))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainer not found: Ghost");
         verify(trainerRepository, never()).save(any());
     }
@@ -160,7 +162,7 @@ class TrainerServiceImplTest {
         when(trainerRepository.findByUsername("Jane.Smith")).thenReturn(Optional.of(existingTrainer));
 
         assertThatThrownBy(() -> trainerService.setActiveStatus("Jane.Smith", true))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("already active");
         verify(trainerRepository, never()).save(any());
     }

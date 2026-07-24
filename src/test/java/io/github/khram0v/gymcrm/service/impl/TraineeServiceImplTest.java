@@ -1,6 +1,8 @@
 package io.github.khram0v.gymcrm.service.impl;
 
 import io.github.khram0v.gymcrm.exception.AuthenticationException;
+import io.github.khram0v.gymcrm.exception.ConflictException;
+import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.model.Trainee;
 import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.model.TrainingType;
@@ -86,7 +88,7 @@ class TraineeServiceImplTest {
         when(traineeRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> traineeService.getByUsername("Ghost"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainee not found: Ghost");
     }
 
@@ -115,7 +117,7 @@ class TraineeServiceImplTest {
         verify(traineeRepository, never()).save(any());
     }
 
-    // ~~~~~ updateProfile (now includes active) ~~~~~
+    // ~~~~~ updateProfile ~~~~~
 
     @Test
     void updateProfile_updatesFieldsIncludingActive_andSaves() {
@@ -137,7 +139,7 @@ class TraineeServiceImplTest {
         when(traineeRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> traineeService.updateProfile("Ghost", "A", "B", null, null, true))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(NotFoundException.class);
         verify(traineeRepository, never()).save(any());
     }
 
@@ -159,7 +161,7 @@ class TraineeServiceImplTest {
         when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(existingTrainee));
 
         assertThatThrownBy(() -> traineeService.setActiveStatus("John.Doe", true))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("already active");
         verify(traineeRepository, never()).save(any());
     }
@@ -180,7 +182,7 @@ class TraineeServiceImplTest {
         when(traineeRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> traineeService.deleteByUsername("Ghost"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(NotFoundException.class);
         verify(traineeRepository, never()).delete(any());
     }
 
@@ -201,7 +203,7 @@ class TraineeServiceImplTest {
         when(traineeRepository.existsByUsername("Ghost")).thenReturn(false);
 
         assertThatThrownBy(() -> traineeService.getUnassignedTrainers("Ghost"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainee not found: Ghost");
         verify(traineeRepository, never()).findUnassignedTrainers(anyString());
     }
@@ -232,7 +234,7 @@ class TraineeServiceImplTest {
         when(trainerRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> traineeService.updateTrainers("John.Doe", List.of("Ghost")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainer not found: Ghost");
         verify(traineeRepository, never()).save(any());
     }
@@ -242,7 +244,7 @@ class TraineeServiceImplTest {
         when(traineeRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> traineeService.updateTrainers("Ghost", List.of("Ann.Lee")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainee not found: Ghost");
     }
 }

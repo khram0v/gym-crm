@@ -1,5 +1,6 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.model.Trainee;
 import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.model.Training;
@@ -88,7 +89,7 @@ class TrainingServiceImplTest {
 
         assertThatThrownBy(() -> trainingService.addTraining(
                 "Ghost", "John.Doe", "Cardio", LocalDate.now(), 60))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainer not found: Ghost");
         verify(trainingRepository, never()).save(any());
     }
@@ -100,7 +101,7 @@ class TrainingServiceImplTest {
 
         assertThatThrownBy(() -> trainingService.addTraining(
                 "Jane.Smith", "Ghost", "Cardio", LocalDate.now(), 60))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainee not found: Ghost");
         verify(trainingRepository, never()).save(any());
     }
