@@ -1,10 +1,12 @@
 package io.github.khram0v.gymcrm.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Builder;
 
 import java.time.Instant;
 import java.util.Map;
 
+@Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ErrorResponse(
         Instant timestamp,

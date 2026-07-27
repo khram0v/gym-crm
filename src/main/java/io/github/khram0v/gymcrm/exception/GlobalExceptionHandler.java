@@ -58,15 +58,16 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String message,
                                                 HttpServletRequest request, Map<String, String> fieldErrors) {
-        ErrorResponse body = new ErrorResponse(
-                Instant.now(),
-                status.value(),
-                status.getReasonPhrase(),
-                message,
-                request.getRequestURI(),
-                MDC.get(TRANSACTION_ID),
-                fieldErrors
-        );
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(status.value())
+                .error(status.getReasonPhrase())
+                .message(message)
+                .path(request.getRequestURI())
+                .transactionId(MDC.get(TRANSACTION_ID))
+                .fieldErrors(fieldErrors)
+                .build();
+
         return ResponseEntity.status(status).body(body);
     }
 }
