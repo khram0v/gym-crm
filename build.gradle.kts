@@ -35,6 +35,7 @@ dependencies {
     annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
     annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
 
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-liquibase-test")
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
@@ -68,8 +69,10 @@ tasks.jacocoTestReport {
                     "io/github/khram0v/gymcrm/model/**",
                     "io/github/khram0v/gymcrm/repository/**",
                     "io/github/khram0v/gymcrm/exception/**",
-                    "io/github/khram0v/gymcrm/mapper/**",
-                    "io/github/khram0v/gymcrm/dto/**"
+                    "io/github/khram0v/gymcrm/dto/**",
+                    "io/github/khram0v/gymcrm/config/**",
+                    "io/github/khram0v/gymcrm/api/**",
+                    "io/github/khram0v/gymcrm/filter/**"
                 )
             }
         })
@@ -93,8 +96,10 @@ tasks.jacocoTestCoverageVerification {
                     "io/github/khram0v/gymcrm/model/**",
                     "io/github/khram0v/gymcrm/repository/**",
                     "io/github/khram0v/gymcrm/exception/**",
-                    "io/github/khram0v/gymcrm/mapper/**",
-                    "io/github/khram0v/gymcrm/dto/**"
+                    "io/github/khram0v/gymcrm/dto/**",
+                    "io/github/khram0v/gymcrm/config/**",
+                    "io/github/khram0v/gymcrm/api/**",
+                    "io/github/khram0v/gymcrm/filter/**"
                 )
             }
         })

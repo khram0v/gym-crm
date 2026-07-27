@@ -1,7 +1,10 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.dto.response.RegistrationResponse;
+import io.github.khram0v.gymcrm.dto.response.TrainerProfileResponse;
 import io.github.khram0v.gymcrm.exception.ConflictException;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.mapper.TrainerMapper;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
 import io.github.khram0v.gymcrm.repository.TrainingTypeRepository;
 import io.github.khram0v.gymcrm.model.Trainer;
@@ -24,11 +27,12 @@ public class TrainerServiceImpl implements TrainerService {
     private final TrainingTypeRepository trainingTypeRepository;
     private final UserCredentialsGenerator credentialsGenerator;
     private final UsernameRegistry usernameRegistry;
+    private final TrainerMapper trainerMapper;
     private final AuthService authService;
 
     @Override
     @Transactional
-    public Trainer create(String firstName, String lastName, Long specializationId) {
+    public RegistrationResponse create(String firstName, String lastName, Long specializationId) {
         TrainingType specialization = trainingTypeRepository.findById(specializationId)
                 .orElseThrow(() -> new NotFoundException("Training type not found: " + specializationId));
 
@@ -39,14 +43,15 @@ public class TrainerServiceImpl implements TrainerService {
 
         Trainer saved = trainerRepository.save(trainer);
         log.info("Created trainer '{}'", saved.getUsername());
-        return saved;
+        return trainerMapper.toRegistrationResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Trainer getByUsername(String username) {
-        return trainerRepository.findByUsername(username)
+    public TrainerProfileResponse getByUsername(String username) {
+        Trainer trainer = trainerRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException("Trainer not found: " + username));
+        return trainerMapper.toProfileResponse(trainer);
     }
 
     @Override
@@ -64,7 +69,7 @@ public class TrainerServiceImpl implements TrainerService {
 
     @Override
     @Transactional
-    public Trainer updateProfile(String username, String firstName, String lastName, boolean active) {
+    public TrainerProfileResponse updateProfile(String username, String firstName, String lastName, boolean active) {
         Trainer trainer = trainerRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException("Trainer not found: " + username));
         trainer.setFirstName(firstName);
@@ -73,7 +78,7 @@ public class TrainerServiceImpl implements TrainerService {
 
         Trainer saved = trainerRepository.save(trainer);
         log.info("Updated profile for trainer '{}'", username);
-        return saved;
+        return trainerMapper.toProfileResponse(saved);
     }
 
     @Override

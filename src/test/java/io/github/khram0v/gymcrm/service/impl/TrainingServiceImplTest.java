@@ -1,6 +1,9 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.dto.response.TraineeTrainingResponse;
+import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.mapper.TrainingMapper;
 import io.github.khram0v.gymcrm.model.Trainee;
 import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.model.Training;
@@ -11,6 +14,7 @@ import io.github.khram0v.gymcrm.repository.TrainingRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -25,6 +29,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,6 +40,7 @@ class TrainingServiceImplTest {
     @Mock private TrainingRepository trainingRepository;
     @Mock private TraineeRepository traineeRepository;
     @Mock private TrainerRepository trainerRepository;
+    @Mock private TrainingMapper trainingMapper;
 
     @InjectMocks private TrainingServiceImpl trainingService;
 
@@ -72,15 +78,17 @@ class TrainingServiceImplTest {
         when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(trainee));
         when(trainingRepository.save(any(Training.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Training result = trainingService.addTraining(
+        trainingService.addTraining(
                 "Jane.Smith", "John.Doe", "Cardio Blast", LocalDate.of(2024, Month.JUNE, 1), 60);
 
-        assertThat(result.getTrainingType()).isSameAs(fitness);
-        assertThat(result.getTrainingName()).isEqualTo("Cardio Blast");
-        assertThat(result.getTrainingDuration()).isEqualTo(60);
-        assertThat(result.getTrainer()).isSameAs(trainer);
-        assertThat(result.getTrainee()).isSameAs(trainee);
-        verify(trainingRepository).save(any(Training.class));
+        ArgumentCaptor<Training> captor = ArgumentCaptor.forClass(Training.class);
+        verify(trainingRepository).save(captor.capture());
+        Training saved = captor.getValue();
+        assertThat(saved.getTrainingType()).isSameAs(fitness);
+        assertThat(saved.getTrainingName()).isEqualTo("Cardio Blast");
+        assertThat(saved.getTrainingDuration()).isEqualTo(60);
+        assertThat(saved.getTrainer()).isSameAs(trainer);
+        assertThat(saved.getTrainee()).isSameAs(trainee);
     }
 
     @Test
@@ -109,24 +117,27 @@ class TrainingServiceImplTest {
     // ~~~~~ getTraineeTrainings ~~~~~
 
     @Test
-    void getTraineeTrainings_buildsSpec_andQueries() {
-        when(trainingRepository.findAll(ArgumentMatchers.<Specification<Training>>any()))
-                .thenReturn(List.of(trainingA, trainingB));
+    void getTraineeTrainings_buildsSpec_queries_andMaps() {
+        List<Training> found = List.of(trainingA, trainingB);
+        List<TraineeTrainingResponse> stub = List.of(traineeTrainingStub(), traineeTrainingStub());
+        when(trainingRepository.findAll(ArgumentMatchers.<Specification<Training>>any())).thenReturn(found);
+        when(trainingMapper.toTraineeTrainingResponses(found)).thenReturn(stub);
 
-        List<Training> result = trainingService.getTraineeTrainings(
+        List<TraineeTrainingResponse> result = trainingService.getTraineeTrainings(
                 "John.Doe", LocalDate.of(2024, Month.JANUARY, 1), LocalDate.of(2024, Month.DECEMBER, 31),
                 "Jane", "Smith", "Fitness");
 
-        assertThat(result).containsExactly(trainingA, trainingB);
-        verify(trainingRepository).findAll(ArgumentMatchers.<Specification<Training>>any());
+        assertThat(result).isSameAs(stub);
+        verify(trainingMapper).toTraineeTrainingResponses(found);
     }
 
     @Test
-    void getTraineeTrainings_withNullCriteria_stillQueries() {
+    void getTraineeTrainings_withNullCriteria_stillQueriesAndMaps() {
         when(trainingRepository.findAll(ArgumentMatchers.<Specification<Training>>any()))
                 .thenReturn(List.of());
+        when(trainingMapper.toTraineeTrainingResponses(anyList())).thenReturn(List.of());
 
-        List<Training> result = trainingService.getTraineeTrainings(
+        List<TraineeTrainingResponse> result = trainingService.getTraineeTrainings(
                 "John.Doe", null, null, null, null, null);
 
         assertThat(result).isEmpty();
@@ -136,25 +147,41 @@ class TrainingServiceImplTest {
     // ~~~~~ getTrainerTrainings ~~~~~
 
     @Test
-    void getTrainerTrainings_buildsSpec_andQueries() {
-        when(trainingRepository.findAll(ArgumentMatchers.<Specification<Training>>any()))
-                .thenReturn(List.of(trainingA));
+    void getTrainerTrainings_buildsSpec_queries_andMaps() {
+        List<Training> found = List.of(trainingA);
+        List<TrainerTrainingResponse> stub = List.of(trainerTrainingStub());
+        when(trainingRepository.findAll(ArgumentMatchers.<Specification<Training>>any())).thenReturn(found);
+        when(trainingMapper.toTrainerTrainingResponses(found)).thenReturn(stub);
 
-        List<Training> result = trainingService.getTrainerTrainings(
+        List<TrainerTrainingResponse> result = trainingService.getTrainerTrainings(
                 "Jane.Smith", null, null, "John", "Doe");
 
-        assertThat(result).containsExactly(trainingA);
+        assertThat(result).isSameAs(stub);
+        verify(trainingMapper).toTrainerTrainingResponses(found);
     }
 
     @Test
-    void getTrainerTrainings_withNullCriteria_stillQueries() {
+    void getTrainerTrainings_withNullCriteria_stillQueriesAndMaps() {
         when(trainingRepository.findAll(ArgumentMatchers.<Specification<Training>>any()))
                 .thenReturn(List.of());
+        when(trainingMapper.toTrainerTrainingResponses(anyList())).thenReturn(List.of());
 
-        List<Training> result = trainingService.getTrainerTrainings(
+        List<TrainerTrainingResponse> result = trainingService.getTrainerTrainings(
                 "Jane.Smith", null, null, null, null);
 
         assertThat(result).isEmpty();
         verify(trainingRepository).findAll(ArgumentMatchers.<Specification<Training>>any());
+    }
+
+    // ~~~~~ helpers ~~~~~
+
+    private TraineeTrainingResponse traineeTrainingStub() {
+        return new TraineeTrainingResponse("Morning Fitness",
+                LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "Jane", "Smith");
+    }
+
+    private TrainerTrainingResponse trainerTrainingStub() {
+        return new TrainerTrainingResponse("Morning Fitness",
+                LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "John", "Doe");
     }
 }

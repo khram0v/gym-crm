@@ -44,6 +44,8 @@ class AuthServiceImplTest {
         trainer.setActive(true);
     }
 
+    // ~~~~~ authenticate ~~~~~
+
     @Test
     void authenticate_whenTraineeCredentialsValid_passes() {
         when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(trainee));

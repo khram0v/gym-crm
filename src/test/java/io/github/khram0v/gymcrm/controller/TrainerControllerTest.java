@@ -1,0 +1,234 @@
+package io.github.khram0v.gymcrm.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.github.khram0v.gymcrm.dto.request.ActivateRequest;
+import io.github.khram0v.gymcrm.dto.request.ChangePasswordRequest;
+import io.github.khram0v.gymcrm.dto.request.TrainerRegistrationRequest;
+import io.github.khram0v.gymcrm.dto.request.UpdateTrainerRequest;
+import io.github.khram0v.gymcrm.dto.response.RegistrationResponse;
+import io.github.khram0v.gymcrm.dto.response.TrainerProfileResponse;
+import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
+import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.service.AuthService;
+import io.github.khram0v.gymcrm.service.TrainerService;
+import io.github.khram0v.gymcrm.service.TrainingService;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.Month;
+import java.util.Base64;
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(controllers = TrainerController.class)
+class TrainerControllerTest {
+
+    @Autowired private MockMvc mockMvc;
+
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+    @MockitoBean private TrainerService trainerService;
+    @MockitoBean private TrainingService trainingService;
+    @MockitoBean private AuthService authService;
+
+    private static final String BASIC =
+            "Basic " + Base64.getEncoder().encodeToString("u:p".getBytes(StandardCharsets.UTF_8));
+
+    // ~~~~~ register ~~~~~
+
+    @Test
+    void register_returns201_unpacksRequest_andBody() throws Exception {
+        var request = new TrainerRegistrationRequest("Kate", "Novak", 1L);
+        when(trainerService.create("Kate", "Novak", 1L))
+                .thenReturn(new RegistrationResponse("Kate.Novak", "pass"));
+
+        mockMvc.perform(post("/api/v1/trainers")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.username").value("Kate.Novak"))
+                .andExpect(jsonPath("$.password").value("pass"));
+
+        verify(trainerService).create("Kate", "Novak", 1L);
+    }
+
+    @Test
+    void register_whenSpecializationNotFound_returns404() throws Exception {
+        var request = new TrainerRegistrationRequest("Kate", "Novak", 99L);
+        when(trainerService.create("Kate", "Novak", 99L))
+                .thenThrow(new NotFoundException("Training type not found: 99"));
+
+        mockMvc.perform(post("/api/v1/trainers")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void register_whenBlankFirstName_returns400_andDoesNotCallService() throws Exception {
+        var request = new TrainerRegistrationRequest("", "Novak", 1L);
+
+        mockMvc.perform(post("/api/v1/trainers")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verify(trainerService, never()).create(any(), any(), any());
+    }
+
+    // ~~~~~ getProfile ~~~~~
+
+    @Test
+    void getProfile_returns200_andBody() throws Exception {
+        when(trainerService.getByUsername("Jane.Smith")).thenReturn(sampleProfile());
+
+        mockMvc.perform(get("/api/v1/trainers/{username}", "Jane.Smith")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("Jane.Smith"))
+                .andExpect(jsonPath("$.firstName").value("Jane"));
+
+        verify(trainerService).getByUsername("Jane.Smith");
+    }
+
+    @Test
+    void getProfile_whenNotFound_returns404() throws Exception {
+        when(trainerService.getByUsername("Ghost"))
+                .thenThrow(new NotFoundException("Trainer not found: Ghost"));
+
+        mockMvc.perform(get("/api/v1/trainers/{username}", "Ghost")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+                .andExpect(status().isNotFound());
+    }
+
+    // ~~~~~ changePassword ~~~~~
+
+    @Test
+    void changePassword_returns200_andUnpacksBody() throws Exception {
+        var request = new ChangePasswordRequest("oldPass", "newPass");
+
+        mockMvc.perform(put("/api/v1/trainers/{username}/password", "Jane.Smith")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(trainerService).changePassword("Jane.Smith", "oldPass", "newPass");
+    }
+
+    @Test
+    void changePassword_whenBlankNewPassword_returns400() throws Exception {
+        var request = new ChangePasswordRequest("oldPass", "");
+
+        mockMvc.perform(put("/api/v1/trainers/{username}/password", "Jane.Smith")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+
+        verify(trainerService, never()).changePassword(any(), any(), any());
+    }
+
+    // ~~~~~ updateProfile ~~~~~
+
+    @Test
+    void updateProfile_returns200_unpacksFields_andBody() throws Exception {
+        var request = new UpdateTrainerRequest("Janet", "Smith", false);
+        when(trainerService.updateProfile("Jane.Smith", "Janet", "Smith", false))
+                .thenReturn(sampleProfile());
+
+        mockMvc.perform(put("/api/v1/trainers/{username}", "Jane.Smith")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("Jane.Smith"));
+
+        verify(trainerService).updateProfile("Jane.Smith", "Janet", "Smith", false);
+    }
+
+    // ~~~~~ getTrainings ~~~~~
+
+    @Test
+    void getTrainings_passesAllQueryParams_returns200_andList() throws Exception {
+        when(trainingService.getTrainerTrainings(
+                "Jane.Smith", LocalDate.of(2024, Month.JANUARY, 1), LocalDate.of(2024, Month.DECEMBER, 31),
+                "John", "Doe"))
+                .thenReturn(List.of(new TrainerTrainingResponse("Morning Fitness",
+                        LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "John", "Doe")));
+
+        mockMvc.perform(get("/api/v1/trainers/{username}/trainings", "Jane.Smith")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC)
+                        .param("from", "2024-01-01")
+                        .param("to", "2024-12-31")
+                        .param("traineeFirstName", "John")
+                        .param("traineeLastName", "Doe"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].trainingName").value("Morning Fitness"));
+
+        verify(trainingService).getTrainerTrainings(
+                "Jane.Smith", LocalDate.of(2024, Month.JANUARY, 1), LocalDate.of(2024, Month.DECEMBER, 31),
+                "John", "Doe");
+    }
+
+    @Test
+    void getTrainings_withNoParams_passesNulls_returns200() throws Exception {
+        when(trainingService.getTrainerTrainings(
+                eq("Jane.Smith"), isNull(), isNull(), isNull(), isNull()))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/trainers/{username}/trainings", "Jane.Smith")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+                .andExpect(status().isOk());
+
+        verify(trainingService).getTrainerTrainings(
+                eq("Jane.Smith"), isNull(), isNull(), isNull(), isNull());
+    }
+
+    // ~~~~~ setActiveStatus ~~~~~
+
+    @Test
+    void setActiveStatus_returns200_andUnpacksActive() throws Exception {
+        var request = new ActivateRequest(false);
+
+        mockMvc.perform(patch("/api/v1/trainers/{username}/status", "Jane.Smith")
+                        .header(HttpHeaders.AUTHORIZATION, BASIC)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(trainerService).setActiveStatus("Jane.Smith", false);
+    }
+
+    // ~~~~~ helpers ~~~~~
+
+    private TrainerProfileResponse sampleProfile() {
+        return new TrainerProfileResponse("Jane.Smith", "Jane", "Smith", null, true, List.of());
+    }
+}

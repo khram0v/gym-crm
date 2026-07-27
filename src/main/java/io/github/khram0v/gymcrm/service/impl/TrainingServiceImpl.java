@@ -1,6 +1,9 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.dto.response.TraineeTrainingResponse;
+import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.mapper.TrainingMapper;
 import io.github.khram0v.gymcrm.repository.TraineeRepository;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
 import io.github.khram0v.gymcrm.repository.TrainingRepository;
@@ -26,10 +29,11 @@ public class TrainingServiceImpl implements TrainingService {
     private final TrainingRepository trainingRepository;
     private final TrainerRepository trainerRepository;
     private final TraineeRepository traineeRepository;
+    private final TrainingMapper trainingMapper;
 
     @Override
     @Transactional
-    public Training addTraining(String trainerUsername,
+    public void addTraining(String trainerUsername,
                                 String traineeUsername,
                                 String trainingName,
                                 LocalDate trainingDate,
@@ -42,19 +46,18 @@ public class TrainingServiceImpl implements TrainingService {
         Training training = new Training(trainee, trainer, trainingName,
                 trainer.getSpecialization(), trainingDate, duration);
 
-        Training saved = trainingRepository.save(training);
+        trainingRepository.save(training);
         log.info("Added training '{}' (trainer '{}', trainee '{}')", trainingName, trainerUsername, traineeUsername);
-        return saved;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Training> getTraineeTrainings(String traineeUsername,
-                                              LocalDate from,
-                                              LocalDate to,
-                                              String trainerFirstName,
-                                              String trainerLastName,
-                                              String trainingTypeName) {
+    public List<TraineeTrainingResponse> getTraineeTrainings(String traineeUsername,
+                                                             LocalDate from,
+                                                             LocalDate to,
+                                                             String trainerFirstName,
+                                                             String trainerLastName,
+                                                             String trainingTypeName) {
         Specification<Training> spec = Specification.allOf(
                 TrainingSpecification.hasTraineeUsername(traineeUsername),
                 TrainingSpecification.dateFrom(from),
@@ -63,16 +66,16 @@ public class TrainingServiceImpl implements TrainingService {
                 TrainingSpecification.trainerLastName(trainerLastName),
                 TrainingSpecification.trainingTypeName(trainingTypeName)
         );
-        return trainingRepository.findAll(spec);
+        return trainingMapper.toTraineeTrainingResponses(trainingRepository.findAll(spec));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Training> getTrainerTrainings(String trainerUsername,
-                                              LocalDate from,
-                                              LocalDate to,
-                                              String traineeFirstName,
-                                              String traineeLastName) {
+    public List<TrainerTrainingResponse> getTrainerTrainings(String trainerUsername,
+                                                             LocalDate from,
+                                                             LocalDate to,
+                                                             String traineeFirstName,
+                                                             String traineeLastName) {
         Specification<Training> spec = Specification.allOf(
                 TrainingSpecification.hasTrainerUsername(trainerUsername),
                 TrainingSpecification.dateFrom(from),
@@ -80,6 +83,6 @@ public class TrainingServiceImpl implements TrainingService {
                 TrainingSpecification.traineeFirstName(traineeFirstName),
                 TrainingSpecification.traineeLastName(traineeLastName)
         );
-        return trainingRepository.findAll(spec);
+        return trainingMapper.toTrainerTrainingResponses(trainingRepository.findAll(spec));
     }
 }

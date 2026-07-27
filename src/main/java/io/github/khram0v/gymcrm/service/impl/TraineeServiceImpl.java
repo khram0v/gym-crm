@@ -1,7 +1,12 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.dto.response.RegistrationResponse;
+import io.github.khram0v.gymcrm.dto.response.TraineeProfileResponse;
+import io.github.khram0v.gymcrm.dto.response.TrainerSummary;
 import io.github.khram0v.gymcrm.exception.ConflictException;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.mapper.SummaryMapper;
+import io.github.khram0v.gymcrm.mapper.TraineeMapper;
 import io.github.khram0v.gymcrm.repository.TraineeRepository;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
 import io.github.khram0v.gymcrm.model.Trainee;
@@ -29,11 +34,13 @@ public class TraineeServiceImpl implements TraineeService {
     private final TrainerRepository trainerRepository;
     private final UserCredentialsGenerator credentialsGenerator;
     private final UsernameRegistry usernameRegistry;
+    private final TraineeMapper traineeMapper;
+    private final SummaryMapper summaryMapper;
     private final AuthService authService;
 
     @Override
     @Transactional
-    public Trainee create(String firstName, String lastName, LocalDate dateOfBirth, String address) {
+    public RegistrationResponse create(String firstName, String lastName, LocalDate dateOfBirth, String address) {
         Trainee trainee = new Trainee(firstName, lastName, dateOfBirth, address);
         trainee.setUsername(credentialsGenerator.generateUsername(firstName, lastName, usernameRegistry::exists));
         trainee.setPassword(credentialsGenerator.generatePassword());
@@ -41,14 +48,15 @@ public class TraineeServiceImpl implements TraineeService {
 
         Trainee saved = traineeRepository.save(trainee);
         log.info("Created trainee '{}'", saved.getUsername());
-        return saved;
+        return traineeMapper.toRegistrationResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Trainee getByUsername(String username) {
-        return traineeRepository.findByUsername(username)
+    public TraineeProfileResponse getByUsername(String username) {
+        Trainee trainee = traineeRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
+        return traineeMapper.toProfileResponse(trainee);
     }
 
     @Override
@@ -66,14 +74,14 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     @Transactional
-    public Trainee updateProfile(String username,
+    public TraineeProfileResponse updateProfile(String username,
                                  String firstName,
                                  String lastName,
                                  LocalDate dateOfBirth,
                                  String address,
                                  boolean active) {
         Trainee trainee = traineeRepository.findByUsername(username)
-                        .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
+                .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
         trainee.setFirstName(firstName);
         trainee.setLastName(lastName);
         trainee.setDateOfBirth(dateOfBirth);
@@ -82,7 +90,44 @@ public class TraineeServiceImpl implements TraineeService {
 
         Trainee saved = traineeRepository.save(trainee);
         log.info("Updated profile for trainee '{}'", username);
-        return saved;
+        return traineeMapper.toProfileResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteByUsername(String username) {
+        Trainee trainee = traineeRepository.findByUsername(username)
+                .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
+        traineeRepository.delete(trainee);
+        log.info("Deleted trainee '{}'", username);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TrainerSummary> getUnassignedTrainers(String username) {
+        if (!traineeRepository.existsByUsername(username)) {
+            throw new NotFoundException("Trainee not found: " + username);
+        }
+
+        Set<Trainer> unassigned = traineeRepository.findUnassignedTrainers(username);
+        return summaryMapper.trainerSetToSortedSummaries(unassigned);
+    }
+
+    @Override
+    @Transactional
+    public List<TrainerSummary> updateTrainers(String username, List<String> trainerUsernames) {
+        Trainee trainee = traineeRepository.findByUsername(username)
+                .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
+
+        Set<Trainer> trainers = trainerUsernames.stream()
+                .map(u -> trainerRepository.findByUsername(u)
+                        .orElseThrow(() -> new NotFoundException("Trainer not found: " + u)))
+                .collect(Collectors.toSet());
+        trainee.setTrainers(trainers);
+
+        Trainee saved = traineeRepository.save(trainee);
+        log.info("Updated trainers list for trainee '{}' ({} trainers)",  username, trainers.size());
+        return summaryMapper.trainerSetToSortedSummaries(saved.getTrainers());
     }
 
     @Override
@@ -99,41 +144,5 @@ public class TraineeServiceImpl implements TraineeService {
 
         traineeRepository.save(trainee);
         log.info("Set trainee '{}' active status to {}", username, active);
-    }
-
-    @Override
-    @Transactional
-    public void deleteByUsername(String username) {
-        Trainee trainee = traineeRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
-        traineeRepository.delete(trainee);
-        log.info("Deleted trainee '{}'", username);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public Set<Trainer> getUnassignedTrainers(String username) {
-        if (!traineeRepository.existsByUsername(username)) {
-            throw new NotFoundException("Trainee not found: " + username);
-        }
-
-        return traineeRepository.findUnassignedTrainers(username);
-    }
-
-    @Override
-    @Transactional
-    public Set<Trainer> updateTrainers(String username, List<String> trainerUsernames) {
-        Trainee trainee = traineeRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException("Trainee not found: " + username));
-
-        Set<Trainer> trainers = trainerUsernames.stream()
-                .map(u -> trainerRepository.findByUsername(u)
-                        .orElseThrow(() -> new NotFoundException("Trainer not found: " + u)))
-                .collect(Collectors.toSet());
-        trainee.setTrainers(trainers);
-
-        traineeRepository.save(trainee);
-        log.info("Updated trainers list for trainee '{}' ({} trainers)",  username, trainers.size());
-        return trainers;
     }
 }

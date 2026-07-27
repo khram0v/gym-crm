@@ -1,8 +1,8 @@
 package io.github.khram0v.gymcrm.service.impl;
 
-import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.dto.response.TrainingTypeResponse;
+import io.github.khram0v.gymcrm.mapper.TrainingTypeMapper;
 import io.github.khram0v.gymcrm.repository.TrainingTypeRepository;
-import io.github.khram0v.gymcrm.model.TrainingType;
 import io.github.khram0v.gymcrm.service.TrainingTypeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,17 +15,11 @@ import java.util.List;
 public class TrainingTypeServiceImpl implements TrainingTypeService {
 
     private final TrainingTypeRepository trainingTypeRepository;
+    private final TrainingTypeMapper trainingTypeMapper;
 
     @Override
     @Transactional(readOnly = true)
-    public List<TrainingType> getAll() {
-        return trainingTypeRepository.findAll();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public TrainingType getById(Long id) {
-        return trainingTypeRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("Training type not found: " + id));
+    public List<TrainingTypeResponse> getAll() {
+        return trainingTypeMapper.toResponseList(trainingTypeRepository.findAll());
     }
 }

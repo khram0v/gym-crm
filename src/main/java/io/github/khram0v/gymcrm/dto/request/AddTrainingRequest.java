@@ -7,8 +7,8 @@ import jakarta.validation.constraints.Positive;
 import java.time.LocalDate;
 
 public record AddTrainingRequest(
-        @NotBlank String traineeUsername,
         @NotBlank String trainerUsername,
+        @NotBlank String traineeUsername,
         @NotBlank String trainingName,
         @NotNull LocalDate trainingDate,
         @NotNull @Positive Integer trainingDuration

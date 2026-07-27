@@ -1,8 +1,13 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.dto.response.RegistrationResponse;
+import io.github.khram0v.gymcrm.dto.response.TraineeProfileResponse;
+import io.github.khram0v.gymcrm.dto.response.TrainerSummary;
 import io.github.khram0v.gymcrm.exception.AuthenticationException;
 import io.github.khram0v.gymcrm.exception.ConflictException;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.mapper.SummaryMapper;
+import io.github.khram0v.gymcrm.mapper.TraineeMapper;
 import io.github.khram0v.gymcrm.model.Trainee;
 import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.model.TrainingType;
@@ -14,6 +19,7 @@ import io.github.khram0v.gymcrm.util.UsernameRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -41,6 +47,8 @@ class TraineeServiceImplTest {
     @Mock private TrainerRepository trainerRepository;
     @Mock private UserCredentialsGenerator credentialsGenerator;
     @Mock private UsernameRegistry usernameRegistry;
+    @Mock private TraineeMapper traineeMapper;
+    @Mock private SummaryMapper summaryMapper;
     @Mock private AuthService authService;
 
     @InjectMocks private TraineeServiceImpl traineeService;
@@ -59,44 +67,58 @@ class TraineeServiceImplTest {
     // ~~~~~ create ~~~~~
 
     @Test
-    void create_generatesCredentials_activates_andSaves() {
+    void create_generatesCredentials_activates_savesEntity_andReturnsMappedResponse() {
+        RegistrationResponse stub = new RegistrationResponse("Alan.Poe", "pass123");
         when(credentialsGenerator.generateUsername(eq("Alan"), eq("Poe"), any()))
                 .thenReturn("Alan.Poe");
         when(credentialsGenerator.generatePassword()).thenReturn("pass123");
         when(traineeRepository.save(any(Trainee.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(traineeMapper.toRegistrationResponse(any(Trainee.class))).thenReturn(stub);
 
-        Trainee result = traineeService.create("Alan", "Poe",
+        RegistrationResponse result = traineeService.create("Alan", "Poe",
                 LocalDate.of(2000, Month.JANUARY, 1), "Main St");
 
-        assertThat(result.getUsername()).isEqualTo("Alan.Poe");
-        assertThat(result.getPassword()).isEqualTo("pass123");
-        assertThat(result.isActive()).isTrue();
+        ArgumentCaptor<Trainee> captor = ArgumentCaptor.forClass(Trainee.class);
+        verify(traineeMapper).toRegistrationResponse(captor.capture());
+        Trainee mapped = captor.getValue();
+        assertThat(mapped.getUsername()).isEqualTo("Alan.Poe");
+        assertThat(mapped.getPassword()).isEqualTo("pass123");
+        assertThat(mapped.isActive()).isTrue();
+
+        assertThat(result).isSameAs(stub);
         verify(traineeRepository).save(any(Trainee.class));
     }
 
     // ~~~~~ getByUsername ~~~~~
 
     @Test
-    void getByUsername_whenExists_returnsTrainee() {
+    void getByUsername_whenExists_mapsAndReturns() {
+        TraineeProfileResponse stub = sampleProfile();
         when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(existingTrainee));
+        when(traineeMapper.toProfileResponse(existingTrainee)).thenReturn(stub);
 
-        assertThat(traineeService.getByUsername("John.Doe")).isSameAs(existingTrainee);
+        TraineeProfileResponse result = traineeService.getByUsername("John.Doe");
+
+        assertThat(result).isSameAs(stub);
+        verify(traineeMapper).toProfileResponse(existingTrainee);
     }
 
     @Test
-    void getByUsername_whenNotFound_throws() {
+    void getByUsername_whenNotFound_throwsAndDoesNotMap() {
         when(traineeRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> traineeService.getByUsername("Ghost"))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainee not found: Ghost");
+        verify(traineeMapper, never()).toProfileResponse(any());
     }
 
     // ~~~~~ changePassword ~~~~~
 
     @Test
-    void changePassword_authenticatesOldPassword_thenUpdates() {
+    void changePassword_authenticatesWithOldPassword_setsNewPassword_andSaves() {
         when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(existingTrainee));
+        when(traineeRepository.save(any(Trainee.class))).thenAnswer(inv -> inv.getArgument(0));
 
         traineeService.changePassword("John.Doe", "currentPass", "newPass");
 
@@ -106,31 +128,36 @@ class TraineeServiceImplTest {
     }
 
     @Test
-    void changePassword_whenOldPasswordInvalid_neverUpdates() {
-        doThrow(new AuthenticationException("Invalid username or password"))
+    void changePassword_whenAuthenticationFails_propagatesAndDoesNotSave() {
+        doThrow(new AuthenticationException("Invalid credentials"))
                 .when(authService).authenticate("John.Doe", "wrongPass");
 
         assertThatThrownBy(() -> traineeService.changePassword("John.Doe", "wrongPass", "newPass"))
                 .isInstanceOf(AuthenticationException.class);
-
-        verify(traineeRepository, never()).findByUsername(anyString());
         verify(traineeRepository, never()).save(any());
     }
 
     // ~~~~~ updateProfile ~~~~~
 
     @Test
-    void updateProfile_updatesFieldsIncludingActive_andSaves() {
+    void updateProfile_updatesFieldsIncludingActive_savesAndMaps() {
+        TraineeProfileResponse stub = sampleProfile();
         when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(existingTrainee));
         when(traineeRepository.save(any(Trainee.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(traineeMapper.toProfileResponse(any(Trainee.class))).thenReturn(stub);
 
-        Trainee result = traineeService.updateProfile(
+        TraineeProfileResponse result = traineeService.updateProfile(
                 "John.Doe", "Johnny", "Doe", LocalDate.of(1999, Month.MAY, 5), "New Address", false);
 
-        assertThat(result.getFirstName()).isEqualTo("Johnny");
-        assertThat(result.getDateOfBirth()).isEqualTo(LocalDate.of(1999, Month.MAY, 5));
-        assertThat(result.getAddress()).isEqualTo("New Address");
-        assertThat(result.isActive()).isFalse();
+        ArgumentCaptor<Trainee> captor = ArgumentCaptor.forClass(Trainee.class);
+        verify(traineeMapper).toProfileResponse(captor.capture());
+        Trainee mapped = captor.getValue();
+        assertThat(mapped.getFirstName()).isEqualTo("Johnny");
+        assertThat(mapped.getDateOfBirth()).isEqualTo(LocalDate.of(1999, Month.MAY, 5));
+        assertThat(mapped.getAddress()).isEqualTo("New Address");
+        assertThat(mapped.isActive()).isFalse();
+
+        assertThat(result).isSameAs(stub);
         verify(traineeRepository).save(existingTrainee);
     }
 
@@ -141,6 +168,7 @@ class TraineeServiceImplTest {
         assertThatThrownBy(() -> traineeService.updateProfile("Ghost", "A", "B", null, null, true))
                 .isInstanceOf(NotFoundException.class);
         verify(traineeRepository, never()).save(any());
+        verify(traineeMapper, never()).toProfileResponse(any());
     }
 
     // ~~~~~ setActiveStatus ~~~~~
@@ -189,13 +217,20 @@ class TraineeServiceImplTest {
     // ~~~~~ getUnassignedTrainers ~~~~~
 
     @Test
-    void getUnassignedTrainers_whenTraineeExists_returnsFromQuery() {
-        when(traineeRepository.existsByUsername("John.Doe")).thenReturn(true);
+    void getUnassignedTrainers_whenTraineeExists_queriesAndMapsSorted() {
         Trainer t1 = new Trainer("Ann", "Lee", new TrainingType("Yoga"));
         Trainer t2 = new Trainer("Bob", "Fox", new TrainingType("Fitness"));
-        when(traineeRepository.findUnassignedTrainers("John.Doe")).thenReturn(Set.of(t1, t2));
+        Set<Trainer> unassigned = Set.of(t1, t2);
+        List<TrainerSummary> stub = List.of(sampleSummary(), sampleSummary());
 
-        assertThat(traineeService.getUnassignedTrainers("John.Doe")).hasSize(2);
+        when(traineeRepository.existsByUsername("John.Doe")).thenReturn(true);
+        when(traineeRepository.findUnassignedTrainers("John.Doe")).thenReturn(unassigned);
+        when(summaryMapper.trainerSetToSortedSummaries(unassigned)).thenReturn(stub);
+
+        List<TrainerSummary> result = traineeService.getUnassignedTrainers("John.Doe");
+
+        assertThat(result).isSameAs(stub);
+        verify(summaryMapper).trainerSetToSortedSummaries(unassigned);
     }
 
     @Test
@@ -206,25 +241,30 @@ class TraineeServiceImplTest {
                 .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainee not found: Ghost");
         verify(traineeRepository, never()).findUnassignedTrainers(anyString());
+        verify(summaryMapper, never()).trainerSetToSortedSummaries(any());
     }
 
     // ~~~~~ updateTrainers ~~~~~
 
     @Test
-    void updateTrainers_resolvesEach_setsOnTrainee_andReturnsSet() {
-        when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(existingTrainee));
-
+    void updateTrainers_resolvesEach_setsOnTrainee_savesAndMaps() {
         Trainer t1 = new Trainer("Ann", "Lee", new TrainingType("Yoga"));
         t1.setUsername("Ann.Lee");
         Trainer t2 = new Trainer("Bob", "Fox", new TrainingType("Fitness"));
         t2.setUsername("Bob.Fox");
+        List<TrainerSummary> stub = List.of(sampleSummary(), sampleSummary());
+
+        when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(existingTrainee));
         when(trainerRepository.findByUsername("Ann.Lee")).thenReturn(Optional.of(t1));
         when(trainerRepository.findByUsername("Bob.Fox")).thenReturn(Optional.of(t2));
+        when(traineeRepository.save(any(Trainee.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(summaryMapper.trainerSetToSortedSummaries(any())).thenReturn(stub);
 
-        Set<Trainer> result = traineeService.updateTrainers("John.Doe", List.of("Ann.Lee", "Bob.Fox"));
+        List<TrainerSummary> result = traineeService.updateTrainers(
+                "John.Doe", List.of("Ann.Lee", "Bob.Fox"));
 
-        assertThat(result).containsExactlyInAnyOrder(t1, t2);
         assertThat(existingTrainee.getTrainers()).containsExactlyInAnyOrder(t1, t2);
+        assertThat(result).isSameAs(stub);
         verify(traineeRepository).save(existingTrainee);
     }
 
@@ -246,5 +286,16 @@ class TraineeServiceImplTest {
         assertThatThrownBy(() -> traineeService.updateTrainers("Ghost", List.of("Ann.Lee")))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainee not found: Ghost");
+    }
+
+    // ~~~~~ helpers ~~~~~
+
+    private TraineeProfileResponse sampleProfile() {
+        return new TraineeProfileResponse("John.Doe", "John", "Doe",
+                LocalDate.of(1995, Month.MAY, 20), "123 Main St", true, List.of());
+    }
+
+    private TrainerSummary sampleSummary() {
+        return new TrainerSummary("Jane.Smith", "Jane", "Smith", null);
     }
 }

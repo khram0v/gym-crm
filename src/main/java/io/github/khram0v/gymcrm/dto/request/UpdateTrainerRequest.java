@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotNull;
 public record UpdateTrainerRequest(
         @NotBlank String firstName,
         @NotBlank String lastName,
-        Long specializationId,
         @NotNull Boolean active
 ) {
 }
