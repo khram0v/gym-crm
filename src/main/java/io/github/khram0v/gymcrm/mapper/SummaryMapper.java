@@ -12,7 +12,6 @@ import org.mapstruct.Named;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring",
         injectionStrategy = InjectionStrategy.CONSTRUCTOR,
@@ -32,7 +31,7 @@ public interface SummaryMapper {
         return trainers.stream()
                 .sorted(Comparator.comparing(Trainer::getUsername))
                 .map(this::toTrainerSummary)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Named("traineeSetToSortedSummaries")
@@ -43,6 +42,6 @@ public interface SummaryMapper {
         return trainees.stream()
                 .sorted(Comparator.comparing(Trainee::getUsername))
                 .map(this::toTraineeSummary)
-                .collect(Collectors.toList());
+                .toList();
     }
 }
