@@ -16,23 +16,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
 
 import java.time.LocalDate;
 import java.util.List;
 
 @Tag(name = "Trainers", description = "Trainer registration, profile and trainings")
-@RequestMapping("/api/v1/trainers")
 public interface TrainerApi {
 
     @Operation(summary = "Register a new trainer")
@@ -42,9 +30,7 @@ public interface TrainerApi {
     @ApiResponse(responseCode = "404", description = "Specialization not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @SecurityRequirements
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    RegistrationResponse register(@Valid @RequestBody TrainerRegistrationRequest request);
+    RegistrationResponse register(@Valid TrainerRegistrationRequest request);
 
     @Operation(summary = "Get trainer profile")
     @ApiResponse(responseCode = "200", description = "Profile found")
@@ -52,10 +38,8 @@ public interface TrainerApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainer not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @GetMapping("/{username}")
-    @ResponseStatus(HttpStatus.OK)
     TrainerProfileResponse getProfile(
-            @Parameter(description = "Trainer username") @PathVariable String username);
+            @Parameter(description = "Trainer username") String username);
 
     @Operation(summary = "Change trainer password")
     @ApiResponse(responseCode = "200", description = "Password changed")
@@ -64,11 +48,9 @@ public interface TrainerApi {
     @ApiResponse(responseCode = "401", description = "Invalid credentials",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @SecurityRequirements
-    @PutMapping("/{username}/password")
-    @ResponseStatus(HttpStatus.OK)
     void changePassword(
-            @Parameter(description = "Trainer username") @PathVariable String username,
-            @Valid @RequestBody ChangePasswordRequest request);
+            @Parameter(description = "Trainer username") String username,
+            @Valid ChangePasswordRequest request);
 
     @Operation(summary = "Update trainer profile")
     @ApiResponse(responseCode = "200", description = "Profile updated")
@@ -78,11 +60,9 @@ public interface TrainerApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainer not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @PutMapping("/{username}")
-    @ResponseStatus(HttpStatus.OK)
     TrainerProfileResponse updateProfile(
-            @Parameter(description = "Trainer username") @PathVariable String username,
-            @Valid @RequestBody UpdateTrainerRequest request);
+            @Parameter(description = "Trainer username") String username,
+            @Valid UpdateTrainerRequest request);
 
     @Operation(summary = "Get the trainer's trainings")
     @ApiResponse(responseCode = "200", description = "Trainings")
@@ -90,18 +70,12 @@ public interface TrainerApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainer not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @GetMapping("/{username}/trainings")
-    @ResponseStatus(HttpStatus.OK)
     List<TrainerTrainingResponse> getTrainings(
-            @Parameter(description = "Trainer username") @PathVariable String username,
-            @Parameter(description = "Period from (inclusive)")
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @Parameter(description = "Period to (inclusive)")
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @Parameter(description = "Trainee first name filter")
-            @RequestParam(required = false) String traineeFirstName,
-            @Parameter(description = "Trainee last name filter")
-            @RequestParam(required = false) String traineeLastName);
+            @Parameter(description = "Trainer username") String username,
+            @Parameter(description = "Period from (inclusive)") LocalDate from,
+            @Parameter(description = "Period to (inclusive)") LocalDate to,
+            @Parameter(description = "Trainee first name filter") String traineeFirstName,
+            @Parameter(description = "Trainee last name filter") String traineeLastName);
 
     @Operation(summary = "Activate or deactivate a trainer")
     @ApiResponse(responseCode = "200", description = "Status changed")
@@ -113,9 +87,7 @@ public interface TrainerApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "409", description = "Already in requested state",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @PatchMapping("/{username}/status")
-    @ResponseStatus(HttpStatus.OK)
     void setActiveStatus(
-            @Parameter(description = "Trainer username") @PathVariable String username,
-            @Valid @RequestBody ActivateRequest request);
+            @Parameter(description = "Trainer username") String username,
+            @Valid ActivateRequest request);
 }

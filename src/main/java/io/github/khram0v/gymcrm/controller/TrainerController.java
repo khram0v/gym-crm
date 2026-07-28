@@ -11,12 +11,24 @@ import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
 import io.github.khram0v.gymcrm.service.TrainerService;
 import io.github.khram0v.gymcrm.service.TrainingService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
 
 @RestController
+@RequestMapping("/api/v1/trainers")
 @RequiredArgsConstructor
 public class TrainerController implements TrainerApi {
 
@@ -24,38 +36,53 @@ public class TrainerController implements TrainerApi {
     private final TrainingService trainingService;
 
     @Override
-    public RegistrationResponse register(TrainerRegistrationRequest request) {
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public RegistrationResponse register(@RequestBody TrainerRegistrationRequest request) {
         return trainerService.create(
                 request.firstName(), request.lastName(), request.specializationId());
     }
 
     @Override
-    public TrainerProfileResponse getProfile(String username) {
+    @GetMapping("/{username}")
+    public TrainerProfileResponse getProfile(@PathVariable String username) {
         return trainerService.getByUsername(username);
     }
 
     @Override
-    public void changePassword(String username, ChangePasswordRequest request) {
+    @PutMapping("/{username}/password")
+    public void changePassword(@PathVariable String username,
+                               @RequestBody ChangePasswordRequest request) {
         trainerService.changePassword(username, request.oldPassword(), request.newPassword());
     }
 
     @Override
-    public TrainerProfileResponse updateProfile(String username, UpdateTrainerRequest request) {
+    @PutMapping("/{username}")
+    public TrainerProfileResponse updateProfile(@PathVariable String username,
+                                                @RequestBody UpdateTrainerRequest request) {
         return trainerService.updateProfile(
                 username, request.firstName(), request.lastName(), request.active());
     }
 
     @Override
-    public List<TrainerTrainingResponse> getTrainings(String username,
-                                                      LocalDate from,
-                                                      LocalDate to,
-                                                      String traineeFirstName,
-                                                      String traineeLastName) {
+    @GetMapping("/{username}/trainings")
+    public List<TrainerTrainingResponse> getTrainings(
+            @PathVariable String username,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate from,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate to,
+            @RequestParam(required = false) String traineeFirstName,
+            @RequestParam(required = false) String traineeLastName) {
         return trainingService.getTrainerTrainings(username, from, to, traineeFirstName, traineeLastName);
     }
 
     @Override
-    public void setActiveStatus(String username, ActivateRequest request) {
+    @PatchMapping("/{username}/status")
+    public void setActiveStatus(@PathVariable String username,
+                                @RequestBody ActivateRequest request) {
         trainerService.setActiveStatus(username, request.active());
     }
 }

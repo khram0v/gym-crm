@@ -13,12 +13,25 @@ import io.github.khram0v.gymcrm.dto.response.TrainerSummary;
 import io.github.khram0v.gymcrm.service.TraineeService;
 import io.github.khram0v.gymcrm.service.TrainingService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
 
 @RestController
+@RequestMapping("/api/v1/trainees")
 @RequiredArgsConstructor
 public class TraineeController implements TraineeApi {
 
@@ -26,57 +39,77 @@ public class TraineeController implements TraineeApi {
     private final TrainingService trainingService;
 
     @Override
-    public RegistrationResponse register(TraineeRegistrationRequest request) {
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public RegistrationResponse register(@RequestBody TraineeRegistrationRequest request) {
         return traineeService.create(
                 request.firstName(), request.lastName(),
                 request.dateOfBirth(), request.address());
     }
 
     @Override
-    public TraineeProfileResponse getProfile(String username) {
+    @GetMapping("/{username}")
+    public TraineeProfileResponse getProfile(@PathVariable String username) {
         return traineeService.getByUsername(username);
     }
 
     @Override
-    public void changePassword(String username, ChangePasswordRequest request) {
+    @PutMapping("/{username}/password")
+    public void changePassword(@PathVariable String username,
+                               @RequestBody ChangePasswordRequest request) {
         traineeService.changePassword(username, request.oldPassword(), request.newPassword());
     }
 
     @Override
-    public TraineeProfileResponse updateProfile(String username, UpdateTraineeRequest request) {
+    @PutMapping("/{username}")
+    public TraineeProfileResponse updateProfile(@PathVariable String username,
+                                                @RequestBody UpdateTraineeRequest request) {
         return traineeService.updateProfile(
                 username, request.firstName(), request.lastName(),
                 request.dateOfBirth(),request.address(),request.active());
     }
 
     @Override
-    public void delete(String username) {
+    @DeleteMapping("/{username}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable String username) {
         traineeService.deleteByUsername(username);
     }
 
     @Override
-    public List<TrainerSummary> getUnassignedTrainers(String username) {
+    @GetMapping("/{username}/unassigned-trainers")
+    public List<TrainerSummary> getUnassignedTrainers(@PathVariable String username) {
         return traineeService.getUnassignedTrainers(username);
     }
 
     @Override
-    public List<TrainerSummary> updateTrainers(String username, UpdateTraineeTrainersRequest request) {
+    @PutMapping("/{username}/trainers")
+    public List<TrainerSummary> updateTrainers(@PathVariable String username,
+                                               @RequestBody UpdateTraineeTrainersRequest request) {
         return traineeService.updateTrainers(username, request.trainerUsernames());
     }
 
     @Override
-    public List<TraineeTrainingResponse> getTrainings(String username,
-                                                      LocalDate from,
-                                                      LocalDate to,
-                                                      String trainerFirstName,
-                                                      String trainerLastName,
-                                                      String trainingType) {
+    @GetMapping("/{username}/trainings")
+    public List<TraineeTrainingResponse> getTrainings(
+            @PathVariable String username,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate from,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate to,
+            @RequestParam(required = false) String trainerFirstName,
+            @RequestParam(required = false) String trainerLastName,
+            @RequestParam(required = false) String trainingType) {
         return trainingService.getTraineeTrainings(
                 username, from, to, trainerFirstName, trainerLastName, trainingType);
     }
 
     @Override
-    public void setActiveStatus(String username, ActivateRequest request) {
+    @PatchMapping("/{username}/status")
+    public void setActiveStatus(@PathVariable String username,
+                                @RequestBody ActivateRequest request) {
         traineeService.setActiveStatus(username, request.active());
     }
 }
