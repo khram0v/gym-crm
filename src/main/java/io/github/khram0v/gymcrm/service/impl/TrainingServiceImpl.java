@@ -12,6 +12,8 @@ import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.model.Training;
 import io.github.khram0v.gymcrm.repository.specification.TrainingSpecification;
 import io.github.khram0v.gymcrm.service.TrainingService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.domain.Specification;
@@ -30,6 +32,7 @@ public class TrainingServiceImpl implements TrainingService {
     private final TrainerRepository trainerRepository;
     private final TraineeRepository traineeRepository;
     private final TrainingMapper trainingMapper;
+    private final MeterRegistry meterRegistry;
 
     @Override
     @Transactional
@@ -38,16 +41,23 @@ public class TrainingServiceImpl implements TrainingService {
                                 String trainingName,
                                 LocalDate trainingDate,
                                 Integer duration) {
-        Trainer trainer = trainerRepository.findByUsername(trainerUsername)
-                .orElseThrow(() -> new NotFoundException("Trainer not found: " + trainerUsername));
-        Trainee trainee = traineeRepository.findByUsername(traineeUsername)
-                .orElseThrow(() -> new NotFoundException("Trainee not found: " + traineeUsername));
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            Trainer trainer = trainerRepository.findByUsername(trainerUsername)
+                    .orElseThrow(() -> new NotFoundException("Trainer not found: " + trainerUsername));
+            Trainee trainee = traineeRepository.findByUsername(traineeUsername)
+                    .orElseThrow(() -> new NotFoundException("Trainee not found: " + traineeUsername));
 
-        Training training = new Training(trainee, trainer, trainingName,
-                trainer.getSpecialization(), trainingDate, duration);
+            Training training = new Training(trainee, trainer, trainingName,
+                    trainer.getSpecialization(), trainingDate, duration);
 
-        trainingRepository.save(training);
-        log.info("Added training '{}' (trainer '{}', trainee '{}')", trainingName, trainerUsername, traineeUsername);
+            trainingRepository.save(training);
+            log.info("Added training '{}' (trainer '{}', trainee '{}')",
+                    trainingName, trainerUsername, traineeUsername);
+            meterRegistry.counter("gym.trainings.created").increment();
+        } finally {
+            sample.stop(meterRegistry.timer("gym.trainings.created.duration"));
+        }
     }
 
     @Override
@@ -58,15 +68,20 @@ public class TrainingServiceImpl implements TrainingService {
                                                              String trainerFirstName,
                                                              String trainerLastName,
                                                              String trainingTypeName) {
-        Specification<Training> spec = Specification.allOf(
-                TrainingSpecification.hasTraineeUsername(traineeUsername),
-                TrainingSpecification.dateFrom(from),
-                TrainingSpecification.dateTo(to),
-                TrainingSpecification.trainerFirstName(trainerFirstName),
-                TrainingSpecification.trainerLastName(trainerLastName),
-                TrainingSpecification.trainingTypeName(trainingTypeName)
-        );
-        return trainingMapper.toTraineeTrainingResponses(trainingRepository.findAll(spec));
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            Specification<Training> spec = Specification.allOf(
+                    TrainingSpecification.hasTraineeUsername(traineeUsername),
+                    TrainingSpecification.dateFrom(from),
+                    TrainingSpecification.dateTo(to),
+                    TrainingSpecification.trainerFirstName(trainerFirstName),
+                    TrainingSpecification.trainerLastName(trainerLastName),
+                    TrainingSpecification.trainingTypeName(trainingTypeName)
+            );
+            return trainingMapper.toTraineeTrainingResponses(trainingRepository.findAll(spec));
+        } finally {
+            sample.stop(meterRegistry.timer("gym.trainings.query.duration", "type", "trainee"));
+        }
     }
 
     @Override
@@ -76,13 +91,18 @@ public class TrainingServiceImpl implements TrainingService {
                                                              LocalDate to,
                                                              String traineeFirstName,
                                                              String traineeLastName) {
-        Specification<Training> spec = Specification.allOf(
-                TrainingSpecification.hasTrainerUsername(trainerUsername),
-                TrainingSpecification.dateFrom(from),
-                TrainingSpecification.dateTo(to),
-                TrainingSpecification.traineeFirstName(traineeFirstName),
-                TrainingSpecification.traineeLastName(traineeLastName)
-        );
-        return trainingMapper.toTrainerTrainingResponses(trainingRepository.findAll(spec));
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            Specification<Training> spec = Specification.allOf(
+                    TrainingSpecification.hasTrainerUsername(trainerUsername),
+                    TrainingSpecification.dateFrom(from),
+                    TrainingSpecification.dateTo(to),
+                    TrainingSpecification.traineeFirstName(traineeFirstName),
+                    TrainingSpecification.traineeLastName(traineeLastName)
+            );
+            return trainingMapper.toTrainerTrainingResponses(trainingRepository.findAll(spec));
+        } finally {
+            sample.stop(meterRegistry.timer("gym.trainings.query.duration", "type", "trainer"));
+        }
     }
 }

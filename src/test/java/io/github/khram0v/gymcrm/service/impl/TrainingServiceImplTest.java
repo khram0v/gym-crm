@@ -11,6 +11,8 @@ import io.github.khram0v.gymcrm.model.TrainingType;
 import io.github.khram0v.gymcrm.repository.TraineeRepository;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
 import io.github.khram0v.gymcrm.repository.TrainingRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -41,6 +44,7 @@ class TrainingServiceImplTest {
     @Mock private TraineeRepository traineeRepository;
     @Mock private TrainerRepository trainerRepository;
     @Mock private TrainingMapper trainingMapper;
+    @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks private TrainingServiceImpl trainingService;
 
@@ -89,6 +93,9 @@ class TrainingServiceImplTest {
         assertThat(saved.getTrainingDuration()).isEqualTo(60);
         assertThat(saved.getTrainer()).isSameAs(trainer);
         assertThat(saved.getTrainee()).isSameAs(trainee);
+
+        assertThat(meterRegistry.get("gym.trainings.created").counter().count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("gym.trainings.created.duration").timer().count()).isEqualTo(1);
     }
 
     @Test
@@ -129,6 +136,9 @@ class TrainingServiceImplTest {
 
         assertThat(result).isSameAs(stub);
         verify(trainingMapper).toTraineeTrainingResponses(found);
+
+        assertThat(meterRegistry.get("gym.trainings.query.duration").tag("type", "trainee").timer().count())
+                .isEqualTo(1);
     }
 
     @Test
@@ -158,6 +168,9 @@ class TrainingServiceImplTest {
 
         assertThat(result).isSameAs(stub);
         verify(trainingMapper).toTrainerTrainingResponses(found);
+
+        assertThat(meterRegistry.get("gym.trainings.query.duration").tag("type", "trainer").timer().count())
+                .isEqualTo(1);
     }
 
     @Test

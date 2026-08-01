@@ -16,12 +16,15 @@ import io.github.khram0v.gymcrm.repository.TrainerRepository;
 import io.github.khram0v.gymcrm.service.AuthService;
 import io.github.khram0v.gymcrm.util.UserCredentialsGenerator;
 import io.github.khram0v.gymcrm.util.UsernameRegistry;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -50,6 +53,7 @@ class TraineeServiceImplTest {
     @Mock private TraineeMapper traineeMapper;
     @Mock private SummaryMapper summaryMapper;
     @Mock private AuthService authService;
+    @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks private TraineeServiceImpl traineeService;
 
@@ -87,6 +91,9 @@ class TraineeServiceImplTest {
 
         assertThat(result).isSameAs(stub);
         verify(traineeRepository).save(any(Trainee.class));
+
+        assertThat(meterRegistry.get("gym.trainee.registrations").counter().count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("gym.trainee.registration.duration").timer().count()).isEqualTo(1);
     }
 
     // ~~~~~ getByUsername ~~~~~

@@ -13,6 +13,8 @@ import io.github.khram0v.gymcrm.service.AuthService;
 import io.github.khram0v.gymcrm.service.TrainerService;
 import io.github.khram0v.gymcrm.util.UserCredentialsGenerator;
 import io.github.khram0v.gymcrm.util.UsernameRegistry;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,21 +31,28 @@ public class TrainerServiceImpl implements TrainerService {
     private final UsernameRegistry usernameRegistry;
     private final TrainerMapper trainerMapper;
     private final AuthService authService;
+    private final MeterRegistry meterRegistry;
 
     @Override
     @Transactional
     public RegistrationResponse create(String firstName, String lastName, Long specializationId) {
-        TrainingType specialization = trainingTypeRepository.findById(specializationId)
-                .orElseThrow(() -> new NotFoundException("Training type not found: " + specializationId));
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            TrainingType specialization = trainingTypeRepository.findById(specializationId)
+                    .orElseThrow(() -> new NotFoundException("Training type not found: " + specializationId));
 
-        Trainer trainer = new Trainer(firstName, lastName, specialization);
-        trainer.setUsername(credentialsGenerator.generateUsername(firstName, lastName, usernameRegistry::exists));
-        trainer.setPassword(credentialsGenerator.generatePassword());
-        trainer.setActive(true);
+            Trainer trainer = new Trainer(firstName, lastName, specialization);
+            trainer.setUsername(credentialsGenerator.generateUsername(firstName, lastName, usernameRegistry::exists));
+            trainer.setPassword(credentialsGenerator.generatePassword());
+            trainer.setActive(true);
 
-        Trainer saved = trainerRepository.save(trainer);
-        log.info("Created trainer '{}'", saved.getUsername());
-        return trainerMapper.toRegistrationResponse(saved);
+            Trainer saved = trainerRepository.save(trainer);
+            log.info("Created trainer '{}'", saved.getUsername());
+            meterRegistry.counter("gym.trainer.registrations").increment();
+            return trainerMapper.toRegistrationResponse(saved);
+        } finally {
+            sample.stop(meterRegistry.timer("gym.trainer.registration.duration"));
+        }
     }
 
     @Override
