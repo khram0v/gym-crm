@@ -15,6 +15,8 @@ import io.github.khram0v.gymcrm.service.AuthService;
 import io.github.khram0v.gymcrm.service.TraineeService;
 import io.github.khram0v.gymcrm.util.UserCredentialsGenerator;
 import io.github.khram0v.gymcrm.util.UsernameRegistry;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,18 +39,25 @@ public class TraineeServiceImpl implements TraineeService {
     private final TraineeMapper traineeMapper;
     private final SummaryMapper summaryMapper;
     private final AuthService authService;
+    private final MeterRegistry meterRegistry;
 
     @Override
     @Transactional
     public RegistrationResponse create(String firstName, String lastName, LocalDate dateOfBirth, String address) {
-        Trainee trainee = new Trainee(firstName, lastName, dateOfBirth, address);
-        trainee.setUsername(credentialsGenerator.generateUsername(firstName, lastName, usernameRegistry::exists));
-        trainee.setPassword(credentialsGenerator.generatePassword());
-        trainee.setActive(true);
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            Trainee trainee = new Trainee(firstName, lastName, dateOfBirth, address);
+            trainee.setUsername(credentialsGenerator.generateUsername(firstName, lastName, usernameRegistry::exists));
+            trainee.setPassword(credentialsGenerator.generatePassword());
+            trainee.setActive(true);
 
-        Trainee saved = traineeRepository.save(trainee);
-        log.info("Created trainee '{}'", saved.getUsername());
-        return traineeMapper.toRegistrationResponse(saved);
+            Trainee saved = traineeRepository.save(trainee);
+            log.info("Created trainee '{}'", saved.getUsername());
+            meterRegistry.counter("gym.trainee.registrations").increment();
+            return traineeMapper.toRegistrationResponse(saved);
+        } finally {
+            sample.stop(meterRegistry.timer("gym.trainee.registration.duration"));
+        }
     }
 
     @Override

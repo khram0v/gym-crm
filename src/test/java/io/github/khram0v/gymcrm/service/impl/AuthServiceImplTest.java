@@ -5,11 +5,14 @@ import io.github.khram0v.gymcrm.model.Trainee;
 import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.repository.TraineeRepository;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
@@ -25,6 +28,7 @@ class AuthServiceImplTest {
 
     @Mock private TraineeRepository traineeRepository;
     @Mock private TrainerRepository trainerRepository;
+    @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks private AuthServiceImpl authService;
 
@@ -52,6 +56,9 @@ class AuthServiceImplTest {
 
         assertThatCode(() -> authService.authenticate("John.Doe", "correctPass"))
                 .doesNotThrowAnyException();
+
+        assertThat(meterRegistry.get("gym.auth.attempts").tag("result", "success").counter().count())
+                .isEqualTo(1.0);
     }
 
     @Test
@@ -61,6 +68,9 @@ class AuthServiceImplTest {
 
         assertThatCode(() -> authService.authenticate("Jane.Smith", "trainerPass"))
                 .doesNotThrowAnyException();
+
+        assertThat(meterRegistry.get("gym.auth.attempts").tag("result", "success").counter().count())
+                .isEqualTo(1.0);
     }
 
     @Test
@@ -70,6 +80,9 @@ class AuthServiceImplTest {
         assertThatThrownBy(() -> authService.authenticate("John.Doe", "wrongPass"))
                 .isInstanceOf(AuthenticationException.class)
                 .hasMessage("Invalid username or password");
+
+        assertThat(meterRegistry.get("gym.auth.attempts").tag("result", "failure").counter().count())
+                .isEqualTo(1.0);
     }
 
     @Test
@@ -80,6 +93,9 @@ class AuthServiceImplTest {
         assertThatThrownBy(() -> authService.authenticate("Ghost.User", "anyPass"))
                 .isInstanceOf(AuthenticationException.class)
                 .hasMessage("Invalid username or password");
+
+        assertThat(meterRegistry.get("gym.auth.attempts").tag("result", "failure").counter().count())
+                .isEqualTo(1.0);
     }
 
     @Test
@@ -92,5 +108,8 @@ class AuthServiceImplTest {
         Throwable notFound = catchThrowable(() -> authService.authenticate("Ghost.User", "anyPass"));
 
         assertThat(wrongPassword.getMessage()).isEqualTo(notFound.getMessage());
+
+        assertThat(meterRegistry.get("gym.auth.attempts").tag("result", "failure").counter().count())
+                .isEqualTo(2.0);
     }
 }
