@@ -1,6 +1,5 @@
 package io.github.khram0v.gymcrm.config;
 
-import io.github.khram0v.gymcrm.interceptor.AuthInterceptor;
 import io.github.khram0v.gymcrm.interceptor.RequestLoggingInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
@@ -12,13 +11,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final RequestLoggingInterceptor requestLoggingInterceptor;
-    private final AuthInterceptor authInterceptor;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(requestLoggingInterceptor)
-                .addPathPatterns("/api/v1/**");
-        registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/v1/**");
     }
 }
