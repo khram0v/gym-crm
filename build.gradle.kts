@@ -19,30 +19,43 @@ repositories {
     mavenCentral()
 }
 
+val jjwtVersion = "0.13.0"
+val springdocVersion = "3.0.3"
+val mapstructVersion = "1.6.3"
+val lombokMapstructBindingVersion = "0.2.0"
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-liquibase")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("io.micrometer:micrometer-registry-prometheus")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
-    implementation("org.mapstruct:mapstruct:1.6.3")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}")
+    implementation("org.mapstruct:mapstruct:${mapstructVersion}")
+    implementation("io.jsonwebtoken:jjwt-api:${jjwtVersion}")
 
     compileOnly("org.projectlombok:lombok")
+
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")
+
     runtimeOnly("org.postgresql:postgresql")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:${jjwtVersion}")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:${jjwtVersion}")
 
     annotationProcessor("org.projectlombok:lombok")
-    annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
-    annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
+    annotationProcessor("org.mapstruct:mapstruct-processor:${mapstructVersion}")
+    annotationProcessor("org.projectlombok:lombok-mapstruct-binding:${lombokMapstructBindingVersion}")
 
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-liquibase-test")
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 
     testCompileOnly("org.projectlombok:lombok")
+
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     testAnnotationProcessor("org.projectlombok:lombok")
@@ -74,7 +87,9 @@ tasks.jacocoTestReport {
                     "io/github/khram0v/gymcrm/dto/**",
                     "io/github/khram0v/gymcrm/config/**",
                     "io/github/khram0v/gymcrm/api/**",
-                    "io/github/khram0v/gymcrm/filter/**"
+                    "io/github/khram0v/gymcrm/filter/**",
+                    "io/github/khram0v/gymcrm/security/config/**",
+                    "io/github/khram0v/gymcrm/migration/**"
                 )
             }
         })
@@ -101,7 +116,9 @@ tasks.jacocoTestCoverageVerification {
                     "io/github/khram0v/gymcrm/dto/**",
                     "io/github/khram0v/gymcrm/config/**",
                     "io/github/khram0v/gymcrm/api/**",
-                    "io/github/khram0v/gymcrm/filter/**"
+                    "io/github/khram0v/gymcrm/filter/**",
+                    "io/github/khram0v/gymcrm/security/config/**",
+                    "io/github/khram0v/gymcrm/migration/**"
                 )
             }
         })
