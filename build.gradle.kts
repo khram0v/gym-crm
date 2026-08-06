@@ -35,6 +35,8 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}")
     implementation("org.mapstruct:mapstruct:${mapstructVersion}")
     implementation("io.jsonwebtoken:jjwt-api:${jjwtVersion}")
+    implementation("com.github.ben-manes.caffeine:caffeine")
+
 
     compileOnly("org.projectlombok:lombok")
 
