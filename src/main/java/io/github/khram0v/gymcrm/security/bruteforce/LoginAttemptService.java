@@ -4,8 +4,10 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import io.github.khram0v.gymcrm.exception.AccountLockedException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -17,10 +19,21 @@ public class LoginAttemptService {
     private static final Duration LOCK_DURATION = Duration.ofMinutes(5);
     private static final Duration ENTRY_TTL = Duration.ofMinutes(10);
 
-    private final Cache<String, AttemptRecord> attempts = Caffeine.newBuilder()
-            .expireAfterWrite(ENTRY_TTL)
-            .scheduler(Scheduler.systemScheduler())
-            .build();
+    private final Cache<String, AttemptRecord> attempts;
+    private final Clock clock;
+
+    @Autowired
+    public LoginAttemptService() {
+        this(Clock.systemUTC());
+    }
+
+    LoginAttemptService(Clock clock) {
+        this.clock = clock;
+        this.attempts = Caffeine.newBuilder()
+                .expireAfterWrite(ENTRY_TTL)
+                .scheduler(Scheduler.systemScheduler())
+                .build();
+    }
 
     public void checkNotBlocked(String username) {
         AttemptRecord attemptRecord = attempts.getIfPresent(username);
@@ -49,13 +62,13 @@ public class LoginAttemptService {
         attempts.invalidate(username);
     }
 
-    private static final class AttemptRecord {
+    private final class AttemptRecord {
         private final AtomicInteger failedAttempts = new AtomicInteger();
         private volatile Instant lockedUntil;
 
         void recordFailure() {
             if (failedAttempts.incrementAndGet() >= MAX_ATTEMPTS) {
-                lockedUntil = Instant.now().plus(LOCK_DURATION);
+                lockedUntil = clock.instant().plus(LOCK_DURATION);
             }
         }
 
