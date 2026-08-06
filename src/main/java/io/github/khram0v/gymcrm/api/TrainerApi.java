@@ -45,9 +45,8 @@ public interface TrainerApi {
     @ApiResponse(responseCode = "200", description = "Password changed")
     @ApiResponse(responseCode = "400", description = "Invalid request",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @ApiResponse(responseCode = "401", description = "Invalid credentials",
+    @ApiResponse(responseCode = "401", description = "Invalid credentials or unauthenticated",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @SecurityRequirements
     void changePassword(
             @Parameter(description = "Trainer username") String username,
             @Valid ChangePasswordRequest request);
