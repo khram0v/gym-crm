@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
@@ -22,6 +22,6 @@ public interface AuthApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "423", description = "Account temporarily locked due to too many failed attempts",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @SecurityRequirement
+    @SecurityRequirements
     LoginResponse login(@Valid LoginRequest request);
 }
