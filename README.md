@@ -6,6 +6,7 @@ A Spring Boot REST API for managing gym trainees, trainers, and training session
 
 - Java / Spring Boot
 - Spring Data JPA
+- Spring Security (JWT)
 - MapStruct
 - OpenAPI (Swagger)
 - JUnit 5 / Mockito
@@ -22,23 +23,28 @@ The API runs at `http://localhost:8080`.
 
 Swagger UI: `http://localhost:8080/swagger-ui.html`
 
-Use the **Authorize** button to provide Basic auth credentials.
+Use the **Authorize** button to provide a Bearer JWT token (obtained via `POST /api/v1/auth/login`).
 
 ## Authentication
 
-All endpoints use **HTTP Basic auth**, except:
+All endpoints require a **Bearer JWT** token, except:
 
 - `POST /api/v1/trainees` — register trainee
 - `POST /api/v1/trainers` — register trainer
-- `PUT /api/v1/trainees/{username}/password` — change password
-- `PUT /api/v1/trainers/{username}/password` — change password
+- `POST /api/v1/auth/login` — login
 
-Credentials are generated automatically on registration and returned in the response.
+Credentials are generated automatically on registration and returned in the response. 
+Use them to log in and obtain a token; passwords are stored hashed (BCrypt), never in plaintext.
+
+Tokens expire after 1 hour. `POST /api/v1/auth/logout` invalidates the current token immediately. 
+After 3 failed login attempts for a username, further attempts are blocked for 5 minutes.
 
 ## Main Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
+| POST | `/api/v1/auth/login` | Login, obtain JWT token |
+| POST | `/api/v1/auth/logout` | Logout, invalidate current token |
 | POST | `/api/v1/trainees` | Register trainee |
 | POST | `/api/v1/trainers` | Register trainer |
 | GET | `/api/v1/trainees/{username}` | Get trainee profile |
