@@ -6,21 +6,19 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.khram0v.gymcrm.dto.request.AddTrainingRequest;
 import io.github.khram0v.gymcrm.dto.response.TrainingTypeResponse;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
-import io.github.khram0v.gymcrm.service.AuthService;
+import io.github.khram0v.gymcrm.security.jwt.JwtAuthenticationFilter;
 import io.github.khram0v.gymcrm.service.TrainingService;
 import io.github.khram0v.gymcrm.service.TrainingTypeService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.Month;
-import java.util.Base64;
 import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -35,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = TrainingController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class TrainingControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -45,10 +44,7 @@ class TrainingControllerTest {
 
     @MockitoBean private TrainingService trainingService;
     @MockitoBean private TrainingTypeService trainingTypeService;
-    @MockitoBean private AuthService authService;
-
-    private static final String BASIC =
-            "Basic " + Base64.getEncoder().encodeToString("u:p".getBytes(StandardCharsets.UTF_8));
+    @MockitoBean private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     // ~~~~~ addTraining ~~~~~
 
@@ -59,7 +55,6 @@ class TrainingControllerTest {
                 LocalDate.of(2024, Month.JUNE, 1), 60);
 
         mockMvc.perform(post("/api/v1/trainings")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
@@ -78,7 +73,6 @@ class TrainingControllerTest {
                 .when(trainingService).addTraining(any(), any(), any(), any(), any());
 
         mockMvc.perform(post("/api/v1/trainings")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound());
@@ -91,7 +85,6 @@ class TrainingControllerTest {
                 LocalDate.of(2024, Month.JUNE, 1), 60);
 
         mockMvc.perform(post("/api/v1/trainings")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -106,7 +99,6 @@ class TrainingControllerTest {
                 LocalDate.of(2024, Month.JUNE, 1), 0);
 
         mockMvc.perform(post("/api/v1/trainings")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -122,8 +114,7 @@ class TrainingControllerTest {
                 new TrainingTypeResponse(1L, "Fitness"),
                 new TrainingTypeResponse(2L, "Yoga")));
 
-        mockMvc.perform(get("/api/v1/trainings/training-types")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+        mockMvc.perform(get("/api/v1/trainings/training-types"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].id").value(1))

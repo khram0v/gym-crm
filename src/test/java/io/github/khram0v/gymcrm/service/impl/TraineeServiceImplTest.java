@@ -13,7 +13,7 @@ import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.model.TrainingType;
 import io.github.khram0v.gymcrm.repository.TraineeRepository;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
-import io.github.khram0v.gymcrm.service.AuthService;
+import io.github.khram0v.gymcrm.security.PasswordVerifier;
 import io.github.khram0v.gymcrm.util.UserCredentialsGenerator;
 import io.github.khram0v.gymcrm.util.UsernameRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -26,6 +26,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 import java.time.Month;
@@ -52,7 +53,8 @@ class TraineeServiceImplTest {
     @Mock private UsernameRegistry usernameRegistry;
     @Mock private TraineeMapper traineeMapper;
     @Mock private SummaryMapper summaryMapper;
-    @Mock private AuthService authService;
+    @Mock private PasswordEncoder passwordEncoder;
+    @Mock private PasswordVerifier passwordVerifier;
     @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks private TraineeServiceImpl traineeService;
@@ -71,26 +73,24 @@ class TraineeServiceImplTest {
     // ~~~~~ create ~~~~~
 
     @Test
-    void create_generatesCredentials_activates_savesEntity_andReturnsMappedResponse() {
-        RegistrationResponse stub = new RegistrationResponse("Alan.Poe", "pass123");
+    void create_generatesCredentials_encodesPassword_activates_andReturnsRawPasswordInResponse() {
         when(credentialsGenerator.generateUsername(eq("Alan"), eq("Poe"), any()))
                 .thenReturn("Alan.Poe");
         when(credentialsGenerator.generatePassword()).thenReturn("pass123");
+        when(passwordEncoder.encode("pass123")).thenReturn("encodedPass123");
         when(traineeRepository.save(any(Trainee.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(traineeMapper.toRegistrationResponse(any(Trainee.class))).thenReturn(stub);
 
         RegistrationResponse result = traineeService.create("Alan", "Poe",
                 LocalDate.of(2000, Month.JANUARY, 1), "Main St");
 
         ArgumentCaptor<Trainee> captor = ArgumentCaptor.forClass(Trainee.class);
-        verify(traineeMapper).toRegistrationResponse(captor.capture());
-        Trainee mapped = captor.getValue();
-        assertThat(mapped.getUsername()).isEqualTo("Alan.Poe");
-        assertThat(mapped.getPassword()).isEqualTo("pass123");
-        assertThat(mapped.isActive()).isTrue();
+        verify(traineeRepository).save(captor.capture());
+        Trainee saved = captor.getValue();
+        assertThat(saved.getUsername()).isEqualTo("Alan.Poe");
+        assertThat(saved.getPassword()).isEqualTo("encodedPass123");
+        assertThat(saved.isActive()).isTrue();
 
-        assertThat(result).isSameAs(stub);
-        verify(traineeRepository).save(any(Trainee.class));
+        assertThat(result).isEqualTo(new RegistrationResponse("Alan.Poe", "pass123"));
 
         assertThat(meterRegistry.get("gym.trainee.registrations").counter().count()).isEqualTo(1.0);
         assertThat(meterRegistry.get("gym.trainee.registration.duration").timer().count()).isEqualTo(1);
@@ -123,21 +123,23 @@ class TraineeServiceImplTest {
     // ~~~~~ changePassword ~~~~~
 
     @Test
-    void changePassword_authenticatesWithOldPassword_setsNewPassword_andSaves() {
+    void changePassword_verifiesOldPassword_setsEncodedNewPassword_andSaves() {
         when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(existingTrainee));
+        when(passwordEncoder.encode("newPass")).thenReturn("encodedNewPass");
         when(traineeRepository.save(any(Trainee.class))).thenAnswer(inv -> inv.getArgument(0));
 
         traineeService.changePassword("John.Doe", "currentPass", "newPass");
 
-        verify(authService).authenticate("John.Doe", "currentPass");
-        assertThat(existingTrainee.getPassword()).isEqualTo("newPass");
+        verify(passwordVerifier).verify("currentPass", "currentPass");
+        assertThat(existingTrainee.getPassword()).isEqualTo("encodedNewPass");
         verify(traineeRepository).save(existingTrainee);
     }
 
     @Test
-    void changePassword_whenAuthenticationFails_propagatesAndDoesNotSave() {
-        doThrow(new AuthenticationException("Invalid credentials"))
-                .when(authService).authenticate("John.Doe", "wrongPass");
+    void changePassword_whenOldPasswordVerificationFails_propagatesAndDoesNotSave() {
+        when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(existingTrainee));
+        doThrow(new AuthenticationException("Invalid username or password"))
+                .when(passwordVerifier).verify("wrongPass", "currentPass");
 
         assertThatThrownBy(() -> traineeService.changePassword("John.Doe", "wrongPass", "newPass"))
                 .isInstanceOf(AuthenticationException.class);

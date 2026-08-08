@@ -13,21 +13,19 @@ import io.github.khram0v.gymcrm.dto.response.TraineeProfileResponse;
 import io.github.khram0v.gymcrm.dto.response.TraineeTrainingResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerSummary;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
-import io.github.khram0v.gymcrm.service.AuthService;
+import io.github.khram0v.gymcrm.security.jwt.JwtAuthenticationFilter;
 import io.github.khram0v.gymcrm.service.TraineeService;
 import io.github.khram0v.gymcrm.service.TrainingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.Month;
-import java.util.Base64;
 import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -46,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = TraineeController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class TraineeControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -56,10 +55,7 @@ class TraineeControllerTest {
 
     @MockitoBean private TraineeService traineeService;
     @MockitoBean private TrainingService trainingService;
-    @MockitoBean private AuthService authService;
-
-    private static final String BASIC =
-            "Basic " + Base64.getEncoder().encodeToString("u:p".getBytes(StandardCharsets.UTF_8));
+    @MockitoBean private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     // ~~~~~ register ~~~~~
 
@@ -71,7 +67,6 @@ class TraineeControllerTest {
                 .thenReturn(new RegistrationResponse("Alan.Poe", "pass123"));
 
         mockMvc.perform(post("/api/v1/trainees")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -87,7 +82,6 @@ class TraineeControllerTest {
                 LocalDate.of(2000, Month.JANUARY, 1), "Main St");
 
         mockMvc.perform(post("/api/v1/trainees")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -101,8 +95,7 @@ class TraineeControllerTest {
     void getProfile_returns200_andBody() throws Exception {
         when(traineeService.getByUsername("John.Doe")).thenReturn(sampleProfile());
 
-        mockMvc.perform(get("/api/v1/trainees/{username}", "John.Doe")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+        mockMvc.perform(get("/api/v1/trainees/{username}", "John.Doe"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value("John.Doe"))
                 .andExpect(jsonPath("$.firstName").value("John"));
@@ -115,8 +108,7 @@ class TraineeControllerTest {
         when(traineeService.getByUsername("Ghost"))
                 .thenThrow(new NotFoundException("Trainee not found: Ghost"));
 
-        mockMvc.perform(get("/api/v1/trainees/{username}", "Ghost")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+        mockMvc.perform(get("/api/v1/trainees/{username}", "Ghost"))
                 .andExpect(status().isNotFound());
     }
 
@@ -127,7 +119,6 @@ class TraineeControllerTest {
         var request = new ChangePasswordRequest("oldPass", "newPass");
 
         mockMvc.perform(put("/api/v1/trainees/{username}/password", "John.Doe")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
@@ -140,7 +131,6 @@ class TraineeControllerTest {
         var request = new ChangePasswordRequest("oldPass", "");
 
         mockMvc.perform(put("/api/v1/trainees/{username}/password", "John.Doe")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -159,7 +149,6 @@ class TraineeControllerTest {
                 .thenReturn(sampleProfile());
 
         mockMvc.perform(put("/api/v1/trainees/{username}", "John.Doe")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -173,8 +162,7 @@ class TraineeControllerTest {
 
     @Test
     void delete_returns204_andCallsService() throws Exception {
-        mockMvc.perform(delete("/api/v1/trainees/{username}", "John.Doe")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+        mockMvc.perform(delete("/api/v1/trainees/{username}", "John.Doe"))
                 .andExpect(status().isNoContent());
 
         verify(traineeService).deleteByUsername("John.Doe");
@@ -187,8 +175,7 @@ class TraineeControllerTest {
         when(traineeService.getUnassignedTrainers("John.Doe"))
                 .thenReturn(List.of(new TrainerSummary("Ann.Lee", "Ann", "Lee", null)));
 
-        mockMvc.perform(get("/api/v1/trainees/{username}/unassigned-trainers", "John.Doe")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+        mockMvc.perform(get("/api/v1/trainees/{username}/unassigned-trainers", "John.Doe"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].username").value("Ann.Lee"));
@@ -205,7 +192,6 @@ class TraineeControllerTest {
                 .thenReturn(List.of(new TrainerSummary("Ann.Lee", "Ann", "Lee", null)));
 
         mockMvc.perform(put("/api/v1/trainees/{username}/trainers", "John.Doe")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -225,7 +211,6 @@ class TraineeControllerTest {
                         LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "Jane", "Smith")));
 
         mockMvc.perform(get("/api/v1/trainees/{username}/trainings", "John.Doe")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .param("from", "2024-01-01")
                         .param("to", "2024-12-31")
                         .param("trainerFirstName", "Jane")
@@ -245,8 +230,7 @@ class TraineeControllerTest {
                 eq("John.Doe"), isNull(), isNull(), isNull(), isNull(), isNull()))
                 .thenReturn(List.of());
 
-        mockMvc.perform(get("/api/v1/trainees/{username}/trainings", "John.Doe")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+        mockMvc.perform(get("/api/v1/trainees/{username}/trainings", "John.Doe"))
                 .andExpect(status().isOk());
 
         verify(trainingService).getTraineeTrainings(
@@ -260,7 +244,6 @@ class TraineeControllerTest {
         var request = new ActivateRequest(false);
 
         mockMvc.perform(patch("/api/v1/trainees/{username}/status", "John.Doe")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());

@@ -11,21 +11,19 @@ import io.github.khram0v.gymcrm.dto.response.RegistrationResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerProfileResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
-import io.github.khram0v.gymcrm.service.AuthService;
+import io.github.khram0v.gymcrm.security.jwt.JwtAuthenticationFilter;
 import io.github.khram0v.gymcrm.service.TrainerService;
 import io.github.khram0v.gymcrm.service.TrainingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.Month;
-import java.util.Base64;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -42,6 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = TrainerController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class TrainerControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -52,10 +51,7 @@ class TrainerControllerTest {
 
     @MockitoBean private TrainerService trainerService;
     @MockitoBean private TrainingService trainingService;
-    @MockitoBean private AuthService authService;
-
-    private static final String BASIC =
-            "Basic " + Base64.getEncoder().encodeToString("u:p".getBytes(StandardCharsets.UTF_8));
+    @MockitoBean private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     // ~~~~~ register ~~~~~
 
@@ -66,7 +62,6 @@ class TrainerControllerTest {
                 .thenReturn(new RegistrationResponse("Kate.Novak", "pass"));
 
         mockMvc.perform(post("/api/v1/trainers")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -83,7 +78,6 @@ class TrainerControllerTest {
                 .thenThrow(new NotFoundException("Training type not found: 99"));
 
         mockMvc.perform(post("/api/v1/trainers")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound());
@@ -94,7 +88,6 @@ class TrainerControllerTest {
         var request = new TrainerRegistrationRequest("", "Novak", 1L);
 
         mockMvc.perform(post("/api/v1/trainers")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -108,8 +101,7 @@ class TrainerControllerTest {
     void getProfile_returns200_andBody() throws Exception {
         when(trainerService.getByUsername("Jane.Smith")).thenReturn(sampleProfile());
 
-        mockMvc.perform(get("/api/v1/trainers/{username}", "Jane.Smith")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+        mockMvc.perform(get("/api/v1/trainers/{username}", "Jane.Smith"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value("Jane.Smith"))
                 .andExpect(jsonPath("$.firstName").value("Jane"));
@@ -122,8 +114,7 @@ class TrainerControllerTest {
         when(trainerService.getByUsername("Ghost"))
                 .thenThrow(new NotFoundException("Trainer not found: Ghost"));
 
-        mockMvc.perform(get("/api/v1/trainers/{username}", "Ghost")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+        mockMvc.perform(get("/api/v1/trainers/{username}", "Ghost"))
                 .andExpect(status().isNotFound());
     }
 
@@ -134,7 +125,6 @@ class TrainerControllerTest {
         var request = new ChangePasswordRequest("oldPass", "newPass");
 
         mockMvc.perform(put("/api/v1/trainers/{username}/password", "Jane.Smith")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
@@ -147,7 +137,6 @@ class TrainerControllerTest {
         var request = new ChangePasswordRequest("oldPass", "");
 
         mockMvc.perform(put("/api/v1/trainers/{username}/password", "Jane.Smith")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
@@ -164,7 +153,6 @@ class TrainerControllerTest {
                 .thenReturn(sampleProfile());
 
         mockMvc.perform(put("/api/v1/trainers/{username}", "Jane.Smith")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -184,7 +172,6 @@ class TrainerControllerTest {
                         LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "John", "Doe")));
 
         mockMvc.perform(get("/api/v1/trainers/{username}/trainings", "Jane.Smith")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .param("from", "2024-01-01")
                         .param("to", "2024-12-31")
                         .param("traineeFirstName", "John")
@@ -203,8 +190,7 @@ class TrainerControllerTest {
                 eq("Jane.Smith"), isNull(), isNull(), isNull(), isNull()))
                 .thenReturn(List.of());
 
-        mockMvc.perform(get("/api/v1/trainers/{username}/trainings", "Jane.Smith")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC))
+        mockMvc.perform(get("/api/v1/trainers/{username}/trainings", "Jane.Smith"))
                 .andExpect(status().isOk());
 
         verify(trainingService).getTrainerTrainings(
@@ -218,7 +204,6 @@ class TrainerControllerTest {
         var request = new ActivateRequest(false);
 
         mockMvc.perform(patch("/api/v1/trainers/{username}/status", "Jane.Smith")
-                        .header(HttpHeaders.AUTHORIZATION, BASIC)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());

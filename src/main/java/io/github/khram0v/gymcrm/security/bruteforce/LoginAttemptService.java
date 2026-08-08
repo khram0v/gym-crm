@@ -46,7 +46,7 @@ public class LoginAttemptService {
             return;
         }
 
-        if (Instant.now().isBefore(lockedUntil)) {
+        if (clock.instant().isBefore(lockedUntil)) {
             throw new AccountLockedException(
                     "Too many failed login attempts for '" +  username + "'. Locked until " + lockedUntil);
         }

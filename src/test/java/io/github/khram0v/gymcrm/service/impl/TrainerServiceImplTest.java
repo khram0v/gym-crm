@@ -10,7 +10,7 @@ import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.model.TrainingType;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
 import io.github.khram0v.gymcrm.repository.TrainingTypeRepository;
-import io.github.khram0v.gymcrm.service.AuthService;
+import io.github.khram0v.gymcrm.security.PasswordVerifier;
 import io.github.khram0v.gymcrm.util.UserCredentialsGenerator;
 import io.github.khram0v.gymcrm.util.UsernameRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -23,6 +23,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,7 +46,8 @@ class TrainerServiceImplTest {
     @Mock private UserCredentialsGenerator credentialsGenerator;
     @Mock private UsernameRegistry usernameRegistry;
     @Mock private TrainerMapper trainerMapper;
-    @Mock private AuthService authService;
+    @Mock private PasswordEncoder passwordEncoder;
+    @Mock private PasswordVerifier passwordVerifier;
     @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks private TrainerServiceImpl trainerService;
@@ -65,26 +67,25 @@ class TrainerServiceImplTest {
     // ~~~~~ create ~~~~~
 
     @Test
-    void create_resolvesSpecialization_generatesCredentials_savesAndMaps() {
-        RegistrationResponse stub = new RegistrationResponse("Kate.Novak", "pass");
+    void create_resolvesSpecialization_generatesCredentials_encodesPassword_andReturnsRawPasswordInResponse() {
         when(trainingTypeRepository.findById(1L)).thenReturn(Optional.of(fitness));
         when(credentialsGenerator.generateUsername(anyString(), anyString(), any()))
                 .thenReturn("Kate.Novak");
         when(credentialsGenerator.generatePassword()).thenReturn("pass");
+        when(passwordEncoder.encode("pass")).thenReturn("encodedPass");
         when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(trainerMapper.toRegistrationResponse(any(Trainer.class))).thenReturn(stub);
 
         RegistrationResponse result = trainerService.create("Kate", "Novak", 1L);
 
         ArgumentCaptor<Trainer> captor = ArgumentCaptor.forClass(Trainer.class);
-        verify(trainerMapper).toRegistrationResponse(captor.capture());
-        Trainer mapped = captor.getValue();
-        assertThat(mapped.getUsername()).isEqualTo("Kate.Novak");
-        assertThat(mapped.isActive()).isTrue();
-        assertThat(mapped.getSpecialization()).isSameAs(fitness);
+        verify(trainerRepository).save(captor.capture());
+        Trainer saved = captor.getValue();
+        assertThat(saved.getUsername()).isEqualTo("Kate.Novak");
+        assertThat(saved.getPassword()).isEqualTo("encodedPass");
+        assertThat(saved.isActive()).isTrue();
+        assertThat(saved.getSpecialization()).isSameAs(fitness);
 
-        assertThat(result).isSameAs(stub);
-        verify(trainerRepository).save(any(Trainer.class));
+        assertThat(result).isEqualTo(new RegistrationResponse("Kate.Novak", "pass"));
 
         assertThat(meterRegistry.get("gym.trainer.registrations").counter().count()).isEqualTo(1.0);
         assertThat(meterRegistry.get("gym.trainer.registration.duration").timer().count()).isEqualTo(1);
@@ -98,7 +99,6 @@ class TrainerServiceImplTest {
                 .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Training type not found: 99");
         verify(trainerRepository, never()).save(any());
-        verify(trainerMapper, never()).toRegistrationResponse(any());
     }
 
     // ~~~~~ getByUsername ~~~~~
@@ -128,21 +128,23 @@ class TrainerServiceImplTest {
     // ~~~~~ changePassword ~~~~~
 
     @Test
-    void changePassword_authenticatesWithOldPassword_setsNewPassword_andSaves() {
+    void changePassword_verifiesOldPassword_setsEncodedNewPassword_andSaves() {
         when(trainerRepository.findByUsername("Jane.Smith")).thenReturn(Optional.of(existingTrainer));
+        when(passwordEncoder.encode("newPass")).thenReturn("encodedNewPass");
         when(trainerRepository.save(any(Trainer.class))).thenAnswer(inv -> inv.getArgument(0));
 
         trainerService.changePassword("Jane.Smith", "currentPass", "newPass");
 
-        verify(authService).authenticate("Jane.Smith", "currentPass");
-        assertThat(existingTrainer.getPassword()).isEqualTo("newPass");
+        verify(passwordVerifier).verify("currentPass", "currentPass");
+        assertThat(existingTrainer.getPassword()).isEqualTo("encodedNewPass");
         verify(trainerRepository).save(existingTrainer);
     }
 
     @Test
-    void changePassword_whenAuthenticationFails_propagatesAndDoesNotSave() {
-        doThrow(new AuthenticationException("Invalid credentials"))
-                .when(authService).authenticate("Jane.Smith", "wrongPass");
+    void changePassword_whenOldPasswordVerificationFails_propagatesAndDoesNotSave() {
+        when(trainerRepository.findByUsername("Jane.Smith")).thenReturn(Optional.of(existingTrainer));
+        doThrow(new AuthenticationException("Invalid username or password"))
+                .when(passwordVerifier).verify("wrongPass", "currentPass");
 
         assertThatThrownBy(() -> trainerService.changePassword("Jane.Smith", "wrongPass", "newPass"))
                 .isInstanceOf(AuthenticationException.class);
