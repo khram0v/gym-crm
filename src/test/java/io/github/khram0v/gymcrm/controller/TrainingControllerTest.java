@@ -6,13 +6,17 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.khram0v.gymcrm.dto.request.AddTrainingRequest;
 import io.github.khram0v.gymcrm.dto.response.TrainingTypeResponse;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.security.Role;
 import io.github.khram0v.gymcrm.security.jwt.JwtAuthenticationFilter;
 import io.github.khram0v.gymcrm.service.TrainingService;
 import io.github.khram0v.gymcrm.service.TrainingTypeService;
+import io.github.khram0v.gymcrm.testsupport.security.MethodSecurityTestConfig;
+import io.github.khram0v.gymcrm.testsupport.security.WithMockUserPrincipal;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -34,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = TrainingController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(MethodSecurityTestConfig.class)
 class TrainingControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -49,6 +55,7 @@ class TrainingControllerTest {
     // ~~~~~ addTraining ~~~~~
 
     @Test
+    @WithMockUserPrincipal(username = "Jane.Smith", role = Role.TRAINER)
     void addTraining_returns201_andUnpacksArgsInCorrectOrder() throws Exception {
         var request = new AddTrainingRequest(
                 "Jane.Smith", "John.Doe", "Cardio Blast",
@@ -65,6 +72,7 @@ class TrainingControllerTest {
     }
 
     @Test
+    @WithMockUserPrincipal(username = "Ghost", role = Role.TRAINER)
     void addTraining_whenPartyNotFound_returns404() throws Exception {
         var request = new AddTrainingRequest(
                 "Ghost", "John.Doe", "Cardio",
@@ -79,6 +87,7 @@ class TrainingControllerTest {
     }
 
     @Test
+    @WithMockUserPrincipal(username = "Jane.Smith", role = Role.TRAINER)
     void addTraining_whenBlankTrainingName_returns400_andDoesNotCallService() throws Exception {
         var request = new AddTrainingRequest(
                 "Jane.Smith", "John.Doe", "",
@@ -93,6 +102,7 @@ class TrainingControllerTest {
     }
 
     @Test
+    @WithMockUserPrincipal(username = "Jane.Smith", role = Role.TRAINER)
     void addTraining_whenNonPositiveDuration_returns400() throws Exception {
         var request = new AddTrainingRequest(
                 "Jane.Smith", "John.Doe", "Cardio",
@@ -104,6 +114,36 @@ class TrainingControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(trainingService, never()).addTraining(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @WithMockUserPrincipal(username = "Someone.Else", role = Role.TRAINER)
+    void addTraining_whenNotOwnerOfTrainerUsername_returns403_andDoesNotCallService() throws Exception {
+        var request = new AddTrainingRequest(
+                "Jane.Smith", "John.Doe", "Cardio Blast",
+                LocalDate.of(2024, Month.JUNE, 1), 60);
+
+        mockMvc.perform(post("/api/v1/trainings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(trainingService);
+    }
+
+    @Test
+    @WithMockUserPrincipal(username = "Jane.Smith", role = Role.TRAINEE)
+    void addTraining_whenWrongRole_returns403_andDoesNotCallService() throws Exception {
+        var request = new AddTrainingRequest(
+                "Jane.Smith", "John.Doe", "Cardio Blast",
+                LocalDate.of(2024, Month.JUNE, 1), 60);
+
+        mockMvc.perform(post("/api/v1/trainings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(trainingService);
     }
 
     // ~~~~~ getAllTrainingTypes ~~~~~

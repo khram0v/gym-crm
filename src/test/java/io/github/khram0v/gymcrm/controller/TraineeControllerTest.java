@@ -13,13 +13,17 @@ import io.github.khram0v.gymcrm.dto.response.TraineeProfileResponse;
 import io.github.khram0v.gymcrm.dto.response.TraineeTrainingResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerSummary;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.security.Role;
 import io.github.khram0v.gymcrm.security.jwt.JwtAuthenticationFilter;
 import io.github.khram0v.gymcrm.service.TraineeService;
 import io.github.khram0v.gymcrm.service.TrainingService;
+import io.github.khram0v.gymcrm.testsupport.security.MethodSecurityTestConfig;
+import io.github.khram0v.gymcrm.testsupport.security.WithMockUserPrincipal;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +38,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -45,6 +50,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = TraineeController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(MethodSecurityTestConfig.class)
 class TraineeControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -92,6 +98,7 @@ class TraineeControllerTest {
     // ~~~~~ getProfile ~~~~~
 
     @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
     void getProfile_returns200_andBody() throws Exception {
         when(traineeService.getByUsername("John.Doe")).thenReturn(sampleProfile());
 
@@ -104,6 +111,7 @@ class TraineeControllerTest {
     }
 
     @Test
+    @WithMockUserPrincipal(username = "Ghost", role = Role.TRAINEE)
     void getProfile_whenNotFound_returns404() throws Exception {
         when(traineeService.getByUsername("Ghost"))
                 .thenThrow(new NotFoundException("Trainee not found: Ghost"));
@@ -112,9 +120,28 @@ class TraineeControllerTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    @WithMockUserPrincipal(username = "Someone.Else", role = Role.TRAINEE)
+    void getProfile_whenNotOwner_returns403_andDoesNotCallService() throws Exception {
+        mockMvc.perform(get("/api/v1/trainees/{username}", "John.Doe"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(traineeService);
+    }
+
+    @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINER)
+    void getProfile_whenWrongRole_returns403_andDoesNotCallService() throws Exception {
+        mockMvc.perform(get("/api/v1/trainees/{username}", "John.Doe"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(traineeService);
+    }
+
     // ~~~~~ changePassword ~~~~~
 
     @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
     void changePassword_returns200_andUnpacksBody() throws Exception {
         var request = new ChangePasswordRequest("oldPass", "newPass");
 
@@ -127,6 +154,7 @@ class TraineeControllerTest {
     }
 
     @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
     void changePassword_whenBlankNewPassword_returns400() throws Exception {
         var request = new ChangePasswordRequest("oldPass", "");
 
@@ -138,9 +166,23 @@ class TraineeControllerTest {
         verify(traineeService, never()).changePassword(any(), any(), any());
     }
 
+    @Test
+    @WithMockUserPrincipal(username = "Someone.Else", role = Role.TRAINEE)
+    void changePassword_whenNotOwner_returns403_andDoesNotCallService() throws Exception {
+        var request = new ChangePasswordRequest("oldPass", "newPass");
+
+        mockMvc.perform(put("/api/v1/trainees/{username}/password", "John.Doe")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(traineeService);
+    }
+
     // ~~~~~ updateProfile ~~~~~
 
     @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
     void updateProfile_returns200_unpacksAllFields_andBody() throws Exception {
         var request = new UpdateTraineeRequest("Johnny", "Doe",
                 LocalDate.of(1999, Month.MAY, 5), "New Address", false);
@@ -158,9 +200,24 @@ class TraineeControllerTest {
                 LocalDate.of(1999, Month.MAY, 5), "New Address", false);
     }
 
+    @Test
+    @WithMockUserPrincipal(username = "Someone.Else", role = Role.TRAINEE)
+    void updateProfile_whenNotOwner_returns403_andDoesNotCallService() throws Exception {
+        var request = new UpdateTraineeRequest("Johnny", "Doe",
+                LocalDate.of(1999, Month.MAY, 5), "New Address", false);
+
+        mockMvc.perform(put("/api/v1/trainees/{username}", "John.Doe")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(traineeService);
+    }
+
     // ~~~~~ delete ~~~~~
 
     @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
     void delete_returns204_andCallsService() throws Exception {
         mockMvc.perform(delete("/api/v1/trainees/{username}", "John.Doe"))
                 .andExpect(status().isNoContent());
@@ -168,9 +225,19 @@ class TraineeControllerTest {
         verify(traineeService).deleteByUsername("John.Doe");
     }
 
+    @Test
+    @WithMockUserPrincipal(username = "Someone.Else", role = Role.TRAINEE)
+    void delete_whenNotOwner_returns403_andDoesNotCallService() throws Exception {
+        mockMvc.perform(delete("/api/v1/trainees/{username}", "John.Doe"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(traineeService);
+    }
+
     // ~~~~~ getUnassignedTrainers ~~~~~
 
     @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
     void getUnassignedTrainers_returns200_andList() throws Exception {
         when(traineeService.getUnassignedTrainers("John.Doe"))
                 .thenReturn(List.of(new TrainerSummary("Ann.Lee", "Ann", "Lee", null)));
@@ -183,9 +250,19 @@ class TraineeControllerTest {
         verify(traineeService).getUnassignedTrainers("John.Doe");
     }
 
+    @Test
+    @WithMockUserPrincipal(username = "Someone.Else", role = Role.TRAINEE)
+    void getUnassignedTrainers_whenNotOwner_returns403_andDoesNotCallService() throws Exception {
+        mockMvc.perform(get("/api/v1/trainees/{username}/unassigned-trainers", "John.Doe"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(traineeService);
+    }
+
     // ~~~~~ updateTrainers ~~~~~
 
     @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
     void updateTrainers_returns200_unpacksUsernames_andList() throws Exception {
         var request = new UpdateTraineeTrainersRequest(List.of("Ann.Lee", "Bob.Fox"));
         when(traineeService.updateTrainers("John.Doe", List.of("Ann.Lee", "Bob.Fox")))
@@ -200,9 +277,23 @@ class TraineeControllerTest {
         verify(traineeService).updateTrainers("John.Doe", List.of("Ann.Lee", "Bob.Fox"));
     }
 
+    @Test
+    @WithMockUserPrincipal(username = "Someone.Else", role = Role.TRAINEE)
+    void updateTrainers_whenNotOwner_returns403_andDoesNotCallService() throws Exception {
+        var request = new UpdateTraineeTrainersRequest(List.of("Ann.Lee"));
+
+        mockMvc.perform(put("/api/v1/trainees/{username}/trainers", "John.Doe")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(traineeService);
+    }
+
     // ~~~~~ getTrainings ~~~~~
 
     @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
     void getTrainings_passesAllQueryParams_returns200_andList() throws Exception {
         when(trainingService.getTraineeTrainings(
                 "John.Doe", LocalDate.of(2024, Month.JANUARY, 1), LocalDate.of(2024, Month.DECEMBER, 31),
@@ -225,6 +316,7 @@ class TraineeControllerTest {
     }
 
     @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
     void getTrainings_withNoParams_passesNulls_returns200() throws Exception {
         when(trainingService.getTraineeTrainings(
                 eq("John.Doe"), isNull(), isNull(), isNull(), isNull(), isNull()))
@@ -237,9 +329,19 @@ class TraineeControllerTest {
                 eq("John.Doe"), isNull(), isNull(), isNull(), isNull(), isNull());
     }
 
+    @Test
+    @WithMockUserPrincipal(username = "Someone.Else", role = Role.TRAINEE)
+    void getTrainings_whenNotOwner_returns403_andDoesNotCallService() throws Exception {
+        mockMvc.perform(get("/api/v1/trainees/{username}/trainings", "John.Doe"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(trainingService);
+    }
+
     // ~~~~~ setActiveStatus ~~~~~
 
     @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
     void setActiveStatus_returns200_andUnpacksActive() throws Exception {
         var request = new ActivateRequest(false);
 
@@ -249,6 +351,19 @@ class TraineeControllerTest {
                 .andExpect(status().isOk());
 
         verify(traineeService).setActiveStatus("John.Doe", false);
+    }
+
+    @Test
+    @WithMockUserPrincipal(username = "Someone.Else", role = Role.TRAINEE)
+    void setActiveStatus_whenNotOwner_returns403_andDoesNotCallService() throws Exception {
+        var request = new ActivateRequest(false);
+
+        mockMvc.perform(patch("/api/v1/trainees/{username}/status", "John.Doe")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(traineeService);
     }
 
     // ~~~~~ helpers ~~~~~
