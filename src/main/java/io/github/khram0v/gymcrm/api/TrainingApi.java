@@ -21,6 +21,8 @@ public interface TrainingApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "401", description = "Unauthenticated",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Not the owner of this resource",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainer or trainee not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     void addTraining(@Valid AddTrainingRequest request);

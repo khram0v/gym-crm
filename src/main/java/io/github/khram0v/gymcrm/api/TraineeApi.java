@@ -36,6 +36,8 @@ public interface TraineeApi {
     @ApiResponse(responseCode = "200", description = "Profile found")
     @ApiResponse(responseCode = "401", description = "Unauthenticated",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Not the owner of this resource",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainee not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     TraineeProfileResponse getProfile(
@@ -47,6 +49,8 @@ public interface TraineeApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "401", description = "Invalid credentials or unauthenticated",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Not the owner of this resource",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     void changePassword(
             @Parameter(description = "Trainee username") String username,
             @Valid ChangePasswordRequest request);
@@ -56,6 +60,8 @@ public interface TraineeApi {
     @ApiResponse(responseCode = "400", description = "Invalid request",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "401", description = "Unauthenticated",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Not the owner of this resource",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainee not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -67,6 +73,8 @@ public interface TraineeApi {
     @ApiResponse(responseCode = "204", description = "Trainee deleted")
     @ApiResponse(responseCode = "401", description = "Unauthenticated",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Not the owner of this resource",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainee not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     void delete(
@@ -75,6 +83,8 @@ public interface TraineeApi {
     @Operation(summary = "Get active trainers not assigned to this trainee")
     @ApiResponse(responseCode = "200", description = "Unassigned trainers")
     @ApiResponse(responseCode = "401", description = "Unauthenticated",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Not the owner of this resource",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainee not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -87,6 +97,8 @@ public interface TraineeApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "401", description = "Unauthenticated",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Not the owner of this resource",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainee or trainer not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     List<TrainerSummary> updateTrainers(
@@ -96,6 +108,8 @@ public interface TraineeApi {
     @Operation(summary = "Get the trainee's trainings")
     @ApiResponse(responseCode = "200", description = "Trainings")
     @ApiResponse(responseCode = "401", description = "Unauthenticated",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Not the owner of this resource",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainee not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -112,6 +126,8 @@ public interface TraineeApi {
     @ApiResponse(responseCode = "400", description = "Invalid request",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "401", description = "Unauthenticated",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Not the owner of this resource",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Trainee not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
