@@ -15,32 +15,31 @@ import java.time.Instant;
 @Component
 public class JwtService {
 
-    private static final int MIN_SECRET_BYTES = 32;
+    private static final String ROLE_CLAIM = "role";
+    private static final String TYPE_CLAIM = "type";
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
 
-    private final SecretKey signingKey;
+    private final SecretKey key;
     @Getter private final long expirationMs;
+    @Getter private final long refreshExpirationMs;
 
     public JwtService(JwtProperties properties) {
         byte[] secretBytes = properties.secret().getBytes(StandardCharsets.UTF_8);
-        if (secretBytes.length < MIN_SECRET_BYTES) {
-            throw new IllegalStateException(
-                    "security.jwt.secret must be at least " + MIN_SECRET_BYTES + " bytes (256 bits) long");
+        if (secretBytes.length < 32) {
+            throw new IllegalStateException("JWT secret must be at least 32 bytes long");
         }
-        this.signingKey = Keys.hmacShaKeyFor(secretBytes);
+        this.key = Keys.hmacShaKeyFor(secretBytes);
         this.expirationMs = properties.expirationMs();
+        this.refreshExpirationMs = properties.refreshExpirationMs();
     }
 
     public String generateToken(String username, String role) {
-        Instant now = Instant.now();
-        Instant expiry = now.plusMillis(expirationMs);
+        return buildToken(username, role, ACCESS_TOKEN_TYPE, expirationMs);
+    }
 
-        return Jwts.builder()
-                .subject(username)
-                .claim("role", role)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(expiry))
-                .signWith(signingKey, Jwts.SIG.HS256)
-                .compact();
+    public String generateRefreshToken(String username, String role) {
+        return buildToken(username, role, REFRESH_TOKEN_TYPE, refreshExpirationMs);
     }
 
     public String extractUsername(String token) {
@@ -48,7 +47,7 @@ public class JwtService {
     }
 
     public String extractRole(String token) {
-        return parseClaims(token).get("role", String.class);
+        return parseClaims(token).get(ROLE_CLAIM, String.class);
     }
 
     public Instant extractExpiration(String token) {
@@ -56,21 +55,39 @@ public class JwtService {
     }
 
     public boolean isValid(String token, String expectedUsername) {
+        return isValidOfType(token, expectedUsername, ACCESS_TOKEN_TYPE);
+    }
+
+    public boolean isValidRefreshToken(String token, String expectedUsername) {
+        return isValidOfType(token, expectedUsername, REFRESH_TOKEN_TYPE);
+    }
+
+    private boolean isValidOfType(String token, String expectedUsername, String expectedType) {
         try {
             Claims claims = parseClaims(token);
-            return claims.getSubject().equals(expectedUsername) && !isExpired(claims);
+            return claims.getSubject().equals(expectedUsername)
+                    && claims.getExpiration().after(new Date())
+                    && expectedType.equals(claims.get(TYPE_CLAIM, String.class));
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
 
-    private boolean isExpired(Claims claims) {
-        return claims.getExpiration().before(new Date());
+    private String buildToken(String username, String role, String type, long ttlMs) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(username)
+                .claim(ROLE_CLAIM, role)
+                .claim(TYPE_CLAIM, type)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusMillis(ttlMs)))
+                .signWith(key)
+                .compact();
     }
 
     private Claims parseClaims(String token) {
         return Jwts.parser()
-                .verifyWith(signingKey)
+                .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

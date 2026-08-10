@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties(prefix = "security.jwt")
 public record JwtProperties(
         String secret,
-        @DefaultValue("3600000") long expirationMs
+        @DefaultValue("3600000") long expirationMs,
+        @DefaultValue("604800000") long refreshExpirationMs
 ) {
 }
