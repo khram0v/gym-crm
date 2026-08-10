@@ -1,8 +1,10 @@
 package io.github.khram0v.gymcrm.api;
 
 import io.github.khram0v.gymcrm.dto.request.LoginRequest;
+import io.github.khram0v.gymcrm.dto.request.RefreshRequest;
 import io.github.khram0v.gymcrm.dto.response.ErrorResponse;
 import io.github.khram0v.gymcrm.dto.response.LoginResponse;
+import io.github.khram0v.gymcrm.dto.response.RefreshResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -24,4 +26,13 @@ public interface AuthApi {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @SecurityRequirements
     LoginResponse login(@Valid LoginRequest request);
+
+    @Operation(summary = "Exchange a valid refresh token for a new access/resfresh token pair")
+    @ApiResponse(responseCode = "200", description = "Token refreshed")
+    @ApiResponse(responseCode = "400", description = "Invalid request",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @SecurityRequirements
+    RefreshResponse refresh(@Valid RefreshRequest request);
 }
