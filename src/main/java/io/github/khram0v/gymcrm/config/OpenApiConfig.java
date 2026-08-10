@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.oas.models.media.StringSchema;
+import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import org.springdoc.core.customizers.OpenApiCustomizer;
@@ -30,12 +32,18 @@ public class OpenApiConfig {
 
     @Bean
     public OpenApiCustomizer logoutPathCustomizer() {
-        return openApi -> openApi.getPaths().addPathItem("api/v1/auth/logout",
+        return openApi -> openApi.getPaths().addPathItem("/api/v1/auth/logout",
                 new PathItem().post(new Operation()
                         .tags(List.of("Auth"))
                         .summary("Logout and invalidate the current JWT access token")
                         .security(List.of(new io.swagger.v3.oas.models.security.SecurityRequirement()
                                 .addList("bearerAuth")))
+                        .parameters(List.of(new Parameter()
+                                .in("header")
+                                .name("X-Refresh-Token")
+                                .description("Optional refresh token to invalidate alongside the access token")
+                                .required(false)
+                                .schema(new StringSchema())))
                         .responses(new ApiResponses()
                                 .addApiResponse("204", new ApiResponse().description("Logged out"))))
         );
