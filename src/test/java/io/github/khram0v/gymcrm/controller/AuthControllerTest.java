@@ -57,6 +57,7 @@ class AuthControllerTest {
 
         when(authenticationManager.authenticate(any())).thenReturn(authentication);
         when(jwtService.generateToken("John.Doe", "TRAINEE")).thenReturn("jwt-token");
+        when(jwtService.generateRefreshToken("John.Doe", "TRAINEE")).thenReturn("jwt-refresh-token");
         when(jwtService.getExpirationMs()).thenReturn(3_600_000L);
         stubCounter();
 
@@ -65,6 +66,7 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("jwt-token"))
+                .andExpect(jsonPath("$.refreshToken").value("jwt-refresh-token"))
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.expiresInSeconds").value(3600));
 

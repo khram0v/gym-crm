@@ -32,21 +32,22 @@ public class AuthController implements AuthApi {
     public LoginResponse login(@RequestBody LoginRequest request) {
         loginAttemptService.checkNotBlocked(request.username());
 
-        Authentication authentication;
         try {
-            authentication = authenticationManager.authenticate(
+            Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password()));
+
+            UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+            String token = jwtService.generateToken(principal.getUsername(), principal.getRole().name());
+            String refreshToken = jwtService.generateRefreshToken(principal.getUsername(), principal.getRole().name());
+
+            loginAttemptService.loginSucceeded(request.username());
+            meterRegistry.counter("gym.auth.attempts", "result", "success").increment();
+
+            return new LoginResponse(token, refreshToken, "Bearer", jwtService.getExpirationMs() / 1000);
         } catch (org.springframework.security.core.AuthenticationException e) {
             loginAttemptService.loginFailed(request.username());
             meterRegistry.counter("gym.auth.attempts", "result", "failure").increment();
             throw new AuthenticationException("Invalid username or password");
         }
-
-        loginAttemptService.loginSucceeded(request.username());
-        meterRegistry.counter("gym.auth.attempts", "result", "success").increment();
-
-        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        String token = jwtService.generateToken(principal.getUsername(), principal.getRole().name());
-        return new LoginResponse(token, "Bearer", jwtService.getExpirationMs() / 1000);
     }
 }
