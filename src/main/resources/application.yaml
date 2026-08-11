@@ -23,6 +23,10 @@ security:
   cors:
     allowed-origins:
       - "*"
+  admin:
+    username: admin
+    password-hash: "${ADMIN_PASSWORD_HASH:}"
+    enabled: true
 
 springdoc:
   swagger-ui:

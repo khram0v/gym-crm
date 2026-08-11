@@ -16,10 +16,16 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     private final TraineeRepository traineeRepository;
     private final TrainerRepository trainerRepository;
+    private final AdminProperties adminProperties;
 
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        if (adminProperties.username().equals(username)) {
+            return new UserPrincipal(adminProperties.username(), adminProperties.passwordHash(),
+                    adminProperties.enabled(), Role.ADMIN);
+        }
+
         return traineeRepository.findByUsername(username)
                 .map(trainee -> toPrincipal(trainee, Role.TRAINEE))
                 .or(() -> trainerRepository.findByUsername(username)

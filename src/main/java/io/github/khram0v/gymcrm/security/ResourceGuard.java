@@ -15,7 +15,7 @@ public class ResourceGuard {
         return hasRoleAndUsername(Role.TRAINER, username);
     }
 
-    private boolean hasRoleAndUsername (Role role, String username) {
+    private boolean hasRoleAndUsername(Role role, String username) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal principal)) {
             return false;

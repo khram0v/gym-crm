@@ -4,6 +4,7 @@ import io.github.khram0v.gymcrm.model.Trainee;
 import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.repository.TraineeRepository;
 import io.github.khram0v.gymcrm.repository.TrainerRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,7 +27,13 @@ class CustomUserDetailsServiceTest {
     @Mock private TraineeRepository traineeRepository;
     @Mock private TrainerRepository trainerRepository;
 
-    @InjectMocks private CustomUserDetailsService userDetailsService;
+    private CustomUserDetailsService userDetailsService;
+
+    @BeforeEach
+    void setUp() {
+        AdminProperties adminProperties = new AdminProperties("admin", "encodedAdminPass", true);
+        userDetailsService = new CustomUserDetailsService(traineeRepository, trainerRepository, adminProperties);
+    }
 
     @Test
     void loadUserByUsername_whenTraineeExists_returnsPrincipalWithTraineeRole() {
@@ -74,5 +81,30 @@ class CustomUserDetailsServiceTest {
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername("Ghost"))
                 .isInstanceOf(UsernameNotFoundException.class)
                 .hasMessageContaining("User not found: Ghost");
+    }
+
+    @Test
+    void loadUserByUsername_whenUsernameMatchesAdmin_returnsPrincipalWithAdminRole_andDoesNotQueryRepositories() {
+        UserDetails result = userDetailsService.loadUserByUsername("admin");
+
+        assertThat(result).isInstanceOf(UserPrincipal.class);
+        assertThat(result.getUsername()).isEqualTo("admin");
+        assertThat(result.getPassword()).isEqualTo("encodedAdminPass");
+        assertThat(result.isEnabled()).isTrue();
+        assertThat(result.getAuthorities())
+                .extracting(GrantedAuthority::getAuthority)
+                .containsExactly("ROLE_ADMIN");
+        verifyNoInteractions(traineeRepository, trainerRepository);
+    }
+
+    @Test
+    void loadUserByUsername_whenAdminDisabledInConfig_returnsDisabledPrincipal() {
+        AdminProperties disabledAdmin = new AdminProperties("admin", "encodedAdminPass", false);
+        CustomUserDetailsService serviceWithDisabledAdmin =
+                new CustomUserDetailsService(traineeRepository, trainerRepository, disabledAdmin);
+
+        UserDetails result = serviceWithDisabledAdmin.loadUserByUsername("admin");
+
+        assertThat(result.isEnabled()).isFalse();
     }
 }
