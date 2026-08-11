@@ -10,6 +10,12 @@ spring:
   jpa:
     show-sql: true
 
+security:
+  jwt:
+    secret: ${JWT_SECRET:local-only-dev-secret-key-not-for-prod-use-1234567890}
+  admin:
+    password-hash: "$2a$12$LkD4jAbeW2jSK/tFWYHxX.GDiaijMX/6/RYS87k5W3UfNH5JFhSpu"
+
 management:
   endpoints:
     web:

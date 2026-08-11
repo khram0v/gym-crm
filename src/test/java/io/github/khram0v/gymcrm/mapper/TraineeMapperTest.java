@@ -1,7 +1,7 @@
 package io.github.khram0v.gymcrm.mapper;
 
-import io.github.khram0v.gymcrm.dto.response.RegistrationResponse;
 import io.github.khram0v.gymcrm.dto.response.TraineeProfileResponse;
+import io.github.khram0v.gymcrm.dto.response.TrainerSummary;
 import io.github.khram0v.gymcrm.model.Trainee;
 import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.model.TrainingType;
@@ -18,18 +18,6 @@ class TraineeMapperTest {
     private final TrainingTypeMapper typeMapper = new TrainingTypeMapperImpl();
     private final SummaryMapper summaryMapper = new SummaryMapperImpl(typeMapper);
     private final TraineeMapper mapper = new TraineeMapperImpl(summaryMapper);
-
-    @Test
-    void toRegistrationResponse_mapsUsernameAndPassword() {
-        Trainee trainee = new Trainee("John", "Doe", null, null);
-        trainee.setUsername("John.Doe");
-        trainee.setPassword("secret123");
-
-        RegistrationResponse response = mapper.toRegistrationResponse(trainee);
-
-        assertThat(response.username()).isEqualTo("John.Doe");
-        assertThat(response.password()).isEqualTo("secret123");
-    }
 
     @Test
     void toProfileResponse_mapsAllFields_andSortsTrainers() {
@@ -52,7 +40,7 @@ class TraineeMapperTest {
         assertThat(response.dateOfBirth()).isEqualTo(LocalDate.of(1995, Month.MAY, 20));
         assertThat(response.address()).isEqualTo("123 Main St");
         assertThat(response.active()).isTrue();
-        assertThat(response.trainers()).extracting(t -> t.username())
+        assertThat(response.trainers()).extracting(TrainerSummary::username)
                 .containsExactly("Ann.Lee", "Zoe.Zed");
     }
 

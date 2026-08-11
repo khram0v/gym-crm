@@ -7,6 +7,7 @@ import io.github.khram0v.gymcrm.service.TrainingService;
 import io.github.khram0v.gymcrm.service.TrainingTypeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,6 +28,7 @@ public class TrainingController implements TrainingApi {
     @Override
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTrainerOwner(#request.trainerUsername)")
     public void addTraining(@RequestBody AddTrainingRequest request) {
         trainingService.addTraining(
                 request.trainerUsername(), request.traineeUsername(),

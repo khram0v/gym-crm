@@ -16,6 +16,18 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
+security:
+  jwt:
+    expiration-ms: 3600000
+    refresh-expiration-ms: 604800000
+  cors:
+    allowed-origins:
+      - "*"
+  admin:
+    username: admin
+    password-hash: "${ADMIN_PASSWORD_HASH:}"
+    enabled: true
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

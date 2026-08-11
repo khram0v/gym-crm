@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -48,6 +49,20 @@ public class GlobalExceptionHandler {
         }
         log.warn("Validation failed: {}", fieldErrors);
         return build(HttpStatus.BAD_REQUEST, "Validation failed", request, fieldErrors);
+    }
+
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ErrorResponse> handleAccountLocked(AccountLockedException ex,
+                                                             HttpServletRequest request) {
+        log.warn("Account locked: {}", ex.getMessage());
+        return build(HttpStatus.LOCKED, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex,
+                                                            HttpServletRequest request) {
+        log.warn("Access denied: {}", ex.getMessage());
+        return build(HttpStatus.FORBIDDEN, "Access denied", request, null);
     }
 
     @ExceptionHandler(Exception.class)

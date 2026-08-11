@@ -9,7 +9,7 @@ import io.github.khram0v.gymcrm.repository.TrainerRepository;
 import io.github.khram0v.gymcrm.repository.TrainingTypeRepository;
 import io.github.khram0v.gymcrm.model.Trainer;
 import io.github.khram0v.gymcrm.model.TrainingType;
-import io.github.khram0v.gymcrm.service.AuthService;
+import io.github.khram0v.gymcrm.security.PasswordVerifier;
 import io.github.khram0v.gymcrm.service.TrainerService;
 import io.github.khram0v.gymcrm.util.UserCredentialsGenerator;
 import io.github.khram0v.gymcrm.util.UsernameRegistry;
@@ -17,6 +17,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +31,8 @@ public class TrainerServiceImpl implements TrainerService {
     private final UserCredentialsGenerator credentialsGenerator;
     private final UsernameRegistry usernameRegistry;
     private final TrainerMapper trainerMapper;
-    private final AuthService authService;
+    private final PasswordEncoder passwordEncoder;
+    private final PasswordVerifier passwordVerifier;
     private final MeterRegistry meterRegistry;
 
     @Override
@@ -43,13 +45,15 @@ public class TrainerServiceImpl implements TrainerService {
 
             Trainer trainer = new Trainer(firstName, lastName, specialization);
             trainer.setUsername(credentialsGenerator.generateUsername(firstName, lastName, usernameRegistry::exists));
-            trainer.setPassword(credentialsGenerator.generatePassword());
+
+            String rawPassword = credentialsGenerator.generatePassword();
+            trainer.setPassword(passwordEncoder.encode(rawPassword));
             trainer.setActive(true);
 
             Trainer saved = trainerRepository.save(trainer);
             log.info("Created trainer '{}'", saved.getUsername());
             meterRegistry.counter("gym.trainer.registrations").increment();
-            return trainerMapper.toRegistrationResponse(saved);
+            return new RegistrationResponse(saved.getUsername(), rawPassword);
         } finally {
             sample.stop(meterRegistry.timer("gym.trainer.registration.duration"));
         }
@@ -66,11 +70,11 @@ public class TrainerServiceImpl implements TrainerService {
     @Override
     @Transactional
     public void changePassword(String username, String oldPassword, String newPassword) {
-        authService.authenticate(username, oldPassword);
-
         Trainer trainer = trainerRepository.findByUsername(username)
                 .orElseThrow(() -> new NotFoundException("Trainer not found: " + username));
-        trainer.setPassword(newPassword);
+
+        passwordVerifier.verify(oldPassword, trainer.getPassword());
+        trainer.setPassword(passwordEncoder.encode(newPassword));
 
         trainerRepository.save(trainer);
         log.info("Changed password for trainer '{}'", username);
