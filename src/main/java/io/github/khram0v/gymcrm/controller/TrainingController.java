@@ -28,7 +28,7 @@ public class TrainingController implements TrainingApi {
     @Override
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("@resourceGuard.isTrainerOwner(#request.trainerUsername)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTrainerOwner(#request.trainerUsername)")
     public void addTraining(@RequestBody AddTrainingRequest request) {
         trainingService.addTraining(
                 request.trainerUsername(), request.traineeUsername(),

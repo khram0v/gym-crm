@@ -146,6 +146,23 @@ class TrainingControllerTest {
         verifyNoInteractions(trainingService);
     }
 
+    @Test
+    @WithMockUserPrincipal(username = "admin", role = Role.ADMIN)
+    void addTraining_whenAdmin_returns201_regardlessOfTrainerUsername() throws Exception {
+        var request = new AddTrainingRequest(
+                "Jane.Smith", "John.Doe", "Cardio Blast",
+                LocalDate.of(2024, Month.JUNE, 1), 60);
+
+        mockMvc.perform(post("/api/v1/trainings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        verify(trainingService).addTraining(
+                "Jane.Smith", "John.Doe", "Cardio Blast",
+                LocalDate.of(2024, Month.JUNE, 1), 60);
+    }
+
     // ~~~~~ getAllTrainingTypes ~~~~~
 
     @Test

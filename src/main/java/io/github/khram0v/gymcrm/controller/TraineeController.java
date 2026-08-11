@@ -50,14 +50,14 @@ public class TraineeController implements TraineeApi {
 
     @Override
     @GetMapping("/{username}")
-    @PreAuthorize("@resourceGuard.isTraineeOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTraineeOwner(#username)")
     public TraineeProfileResponse getProfile(@PathVariable String username) {
         return traineeService.getByUsername(username);
     }
 
     @Override
     @PutMapping("/{username}/password")
-    @PreAuthorize("@resourceGuard.isTraineeOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTraineeOwner(#username)")
     public void changePassword(@PathVariable String username,
                                @RequestBody ChangePasswordRequest request) {
         traineeService.changePassword(username, request.oldPassword(), request.newPassword());
@@ -65,7 +65,7 @@ public class TraineeController implements TraineeApi {
 
     @Override
     @PutMapping("/{username}")
-    @PreAuthorize("@resourceGuard.isTraineeOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTraineeOwner(#username)")
     public TraineeProfileResponse updateProfile(@PathVariable String username,
                                                 @RequestBody UpdateTraineeRequest request) {
         return traineeService.updateProfile(
@@ -76,21 +76,21 @@ public class TraineeController implements TraineeApi {
     @Override
     @DeleteMapping("/{username}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("@resourceGuard.isTraineeOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTraineeOwner(#username)")
     public void delete(@PathVariable String username) {
         traineeService.deleteByUsername(username);
     }
 
     @Override
     @GetMapping("/{username}/unassigned-trainers")
-    @PreAuthorize("@resourceGuard.isTraineeOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTraineeOwner(#username)")
     public List<TrainerSummary> getUnassignedTrainers(@PathVariable String username) {
         return traineeService.getUnassignedTrainers(username);
     }
 
     @Override
     @PutMapping("/{username}/trainers")
-    @PreAuthorize("@resourceGuard.isTraineeOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTraineeOwner(#username)")
     public List<TrainerSummary> updateTrainers(@PathVariable String username,
                                                @RequestBody UpdateTraineeTrainersRequest request) {
         return traineeService.updateTrainers(username, request.trainerUsernames());
@@ -98,7 +98,7 @@ public class TraineeController implements TraineeApi {
 
     @Override
     @GetMapping("/{username}/trainings")
-    @PreAuthorize("@resourceGuard.isTraineeOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTraineeOwner(#username)")
     public List<TraineeTrainingResponse> getTrainings(
             @PathVariable String username,
             @RequestParam(required = false)
@@ -116,7 +116,7 @@ public class TraineeController implements TraineeApi {
 
     @Override
     @PatchMapping("/{username}/status")
-    @PreAuthorize("@resourceGuard.isTraineeOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTraineeOwner(#username)")
     public void setActiveStatus(@PathVariable String username,
                                 @RequestBody ActivateRequest request) {
         traineeService.setActiveStatus(username, request.active());

@@ -46,14 +46,14 @@ public class TrainerController implements TrainerApi {
 
     @Override
     @GetMapping("/{username}")
-    @PreAuthorize("@resourceGuard.isTrainerOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTrainerOwner(#username)")
     public TrainerProfileResponse getProfile(@PathVariable String username) {
         return trainerService.getByUsername(username);
     }
 
     @Override
     @PutMapping("/{username}/password")
-    @PreAuthorize("@resourceGuard.isTrainerOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTrainerOwner(#username)")
     public void changePassword(@PathVariable String username,
                                @RequestBody ChangePasswordRequest request) {
         trainerService.changePassword(username, request.oldPassword(), request.newPassword());
@@ -61,7 +61,7 @@ public class TrainerController implements TrainerApi {
 
     @Override
     @PutMapping("/{username}")
-    @PreAuthorize("@resourceGuard.isTrainerOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTrainerOwner(#username)")
     public TrainerProfileResponse updateProfile(@PathVariable String username,
                                                 @RequestBody UpdateTrainerRequest request) {
         return trainerService.updateProfile(
@@ -70,7 +70,7 @@ public class TrainerController implements TrainerApi {
 
     @Override
     @GetMapping("/{username}/trainings")
-    @PreAuthorize("@resourceGuard.isTrainerOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTrainerOwner(#username)")
     public List<TrainerTrainingResponse> getTrainings(
             @PathVariable String username,
             @RequestParam(required = false)
@@ -86,7 +86,7 @@ public class TrainerController implements TrainerApi {
 
     @Override
     @PatchMapping("/{username}/status")
-    @PreAuthorize("@resourceGuard.isTrainerOwner(#username)")
+    @PreAuthorize("hasRole('ADMIN') or @resourceGuard.isTrainerOwner(#username)")
     public void setActiveStatus(@PathVariable String username,
                                 @RequestBody ActivateRequest request) {
         trainerService.setActiveStatus(username, request.active());

@@ -144,6 +144,18 @@ class TrainerControllerTest {
         verifyNoInteractions(trainerService);
     }
 
+    @Test
+    @WithMockUserPrincipal(username = "admin", role = Role.ADMIN)
+    void getProfile_whenAdmin_returns200_regardlessOfOwnership() throws Exception {
+        when(trainerService.getByUsername("Jane.Smith")).thenReturn(sampleProfile());
+
+        mockMvc.perform(get("/api/v1/trainers/{username}", "Jane.Smith"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("Jane.Smith"));
+
+        verify(trainerService).getByUsername("Jane.Smith");
+    }
+
     // ~~~~~ changePassword ~~~~~
 
     @Test
