@@ -1,15 +1,36 @@
 package io.github.khram0v.gymcrm.security;
 
+import io.github.khram0v.gymcrm.model.Trainee;
+import io.github.khram0v.gymcrm.model.Trainer;
+import io.github.khram0v.gymcrm.model.Training;
+import io.github.khram0v.gymcrm.model.TrainingType;
+import io.github.khram0v.gymcrm.repository.TrainingRepository;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import java.time.LocalDate;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
 class ResourceGuardTest {
 
-    private final ResourceGuard resourceGuard = new ResourceGuard();
+    @Mock private TrainingRepository trainingRepository;
+
+    private ResourceGuard resourceGuard;
+
+    @BeforeEach
+    void setUp() {
+        resourceGuard = new ResourceGuard(trainingRepository);
+    }
 
     @AfterEach
     void tearDown() {
@@ -69,6 +90,51 @@ class ResourceGuardTest {
         authenticateAs("Jane.Smith", Role.TRAINEE);
 
         assertThat(resourceGuard.isTrainerOwner("Jane.Smith")).isFalse();
+    }
+
+    @Test
+    void isTrainingOwner_whenTrainerOwnsTraining_returnsTrue() {
+        authenticateAs("Jane.Smith", Role.TRAINER);
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(trainingOwnedBy("Jane.Smith")));
+
+        assertThat(resourceGuard.isTrainingOwner(10L)).isTrue();
+    }
+
+    @Test
+    void isTrainingOwner_whenTrainerDoesNotOwnTraining_returnsFalse() {
+        authenticateAs("Someone.Else", Role.TRAINER);
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(trainingOwnedBy("Jane.Smith")));
+
+        assertThat(resourceGuard.isTrainingOwner(10L)).isFalse();
+    }
+
+    @Test
+    void isTrainingOwner_whenPrincipalIsTrainee_returnsFalse() {
+        authenticateAs("John.Doe", Role.TRAINEE);
+
+        assertThat(resourceGuard.isTrainingOwner(10L)).isFalse();
+    }
+
+    @Test
+    void isTrainingOwner_whenNoAuthentication_returnsFalse() {
+        assertThat(resourceGuard.isTrainingOwner(10L)).isFalse();
+    }
+
+    @Test
+    void isTrainingOwner_whenTrainingNotFound_returnsTrue_soServiceCanReport404() {
+        authenticateAs("Jane.Smith", Role.TRAINER);
+        when(trainingRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThat(resourceGuard.isTrainingOwner(99L)).isTrue();
+    }
+
+    private Training trainingOwnedBy(String trainerUsername) {
+        TrainingType fitness = new TrainingType("Fitness");
+        Trainer trainer = new Trainer("Jane", "Smith", fitness);
+        trainer.setUsername(trainerUsername);
+        Trainee trainee = new Trainee("John", "Doe", null, null);
+        trainee.setUsername("John.Doe");
+        return new Training(trainee, trainer, "Cardio", fitness, LocalDate.now().plusDays(1), 60);
     }
 
     private void authenticateAs(String username, Role role) {

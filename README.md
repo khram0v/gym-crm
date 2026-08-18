@@ -57,6 +57,9 @@ accessing a resource with the wrong role (e.g. a trainer requesting a trainee en
 A single configuration-defined `admin` account (see security.admin.* properties) bypasses these ownership checks and can
 access every trainee/trainer endpoint regardless of who owns the resource.
 
+Trainings can only be canceled while their date is still in the future; a training that has already taken place is
+immutable and cannot be deleted.
+
 ## Main Endpoints
 
 | Method | Path                                    | Description                                   |
@@ -74,6 +77,7 @@ access every trainee/trainer endpoint regardless of who owns the resource.
 | GET    | `/api/v1/trainees/{username}/trainings` | List trainee trainings                        |
 | GET    | `/api/v1/trainers/{username}/trainings` | List trainer trainings                        |
 | POST   | `/api/v1/trainings`                     | Add training                                  |
+| DELETE | `/api/v1/trainings/{id}`                | Cancel (delete) a training                    |
 | GET    | `/api/v1/trainings/training-types`      | List training types                           |
 
 ## Testing

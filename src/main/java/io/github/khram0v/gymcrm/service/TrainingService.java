@@ -14,6 +14,8 @@ public interface TrainingService {
                          LocalDate trainingDate,
                          Integer duration);
 
+    void deleteTraining(Long trainingId);
+
     List<TraineeTrainingResponse> getTraineeTrainings(String traineeUsername,
                                                       LocalDate from,
                                                       LocalDate to,

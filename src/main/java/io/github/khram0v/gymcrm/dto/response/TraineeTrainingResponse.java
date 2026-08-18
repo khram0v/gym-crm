@@ -3,6 +3,7 @@ package io.github.khram0v.gymcrm.dto.response;
 import java.time.LocalDate;
 
 public record TraineeTrainingResponse(
+        Long id,
         String trainingName,
         LocalDate trainingDate,
         String trainingType,

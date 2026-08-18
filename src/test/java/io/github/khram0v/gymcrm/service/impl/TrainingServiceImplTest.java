@@ -2,6 +2,7 @@ package io.github.khram0v.gymcrm.service.impl;
 
 import io.github.khram0v.gymcrm.dto.response.TraineeTrainingResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
+import io.github.khram0v.gymcrm.exception.ConflictException;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.mapper.TrainingMapper;
 import io.github.khram0v.gymcrm.model.Trainee;
@@ -24,8 +25,11 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Month;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,6 +49,7 @@ class TrainingServiceImplTest {
     @Mock private TrainerRepository trainerRepository;
     @Mock private TrainingMapper trainingMapper;
     @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    @Spy private Clock clock = Clock.fixed(Instant.parse("2024-06-15T00:00:00Z"), ZoneOffset.UTC);
 
     @InjectMocks private TrainingServiceImpl trainingService;
 
@@ -121,6 +126,54 @@ class TrainingServiceImplTest {
         verify(trainingRepository, never()).save(any());
     }
 
+    // ~~~~~ deleteTraining ~~~~~
+
+    @Test
+    void deleteTraining_whenTrainingDateInFuture_deletes_andIncrementsCounter() {
+        Training futureTraining = new Training(trainee, trainer, "Cardio Blast",
+                fitness, LocalDate.of(2024, Month.JUNE, 20), 60);
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(futureTraining));
+
+        trainingService.deleteTraining(10L);
+
+        verify(trainingRepository).delete(futureTraining);
+        assertThat(meterRegistry.get("gym.trainings.deleted").counter().count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("gym.trainings.deleted.duration").timer().count()).isEqualTo(1);
+    }
+
+    @Test
+    void deleteTraining_whenTrainingDateIsToday_throwsConflict_andDoesNotDelete() {
+        Training todayTraining = new Training(trainee, trainer, "Cardio Blast",
+                fitness, LocalDate.of(2024, Month.JUNE, 15), 60);
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(todayTraining));
+
+        assertThatThrownBy(() -> trainingService.deleteTraining(10L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("already occurred");
+        verify(trainingRepository, never()).delete(ArgumentMatchers.<Training>any());
+    }
+
+    @Test
+    void deleteTraining_whenTrainingDateInPast_throwsConflict_andDoesNotDelete() {
+        Training pastTraining = new Training(trainee, trainer, "Cardio Blast",
+                fitness, LocalDate.of(2024, Month.JUNE, 10), 60);
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(pastTraining));
+
+        assertThatThrownBy(() -> trainingService.deleteTraining(10L))
+                .isInstanceOf(ConflictException.class);
+        verify(trainingRepository, never()).delete(ArgumentMatchers.<Training>any());
+    }
+
+    @Test
+    void deleteTraining_whenNotFound_throwsAndDoesNotDelete() {
+        when(trainingRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> trainingService.deleteTraining(99L))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessageContaining("Training not found: 99");
+        verify(trainingRepository, never()).delete(ArgumentMatchers.<Training>any());
+    }
+
     // ~~~~~ getTraineeTrainings ~~~~~
 
     @Test
@@ -189,12 +242,12 @@ class TrainingServiceImplTest {
     // ~~~~~ helpers ~~~~~
 
     private TraineeTrainingResponse traineeTrainingStub() {
-        return new TraineeTrainingResponse("Morning Fitness",
+        return new TraineeTrainingResponse(1L, "Morning Fitness",
                 LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "Jane", "Smith");
     }
 
     private TrainerTrainingResponse trainerTrainingStub() {
-        return new TrainerTrainingResponse("Morning Fitness",
+        return new TrainerTrainingResponse(1L, "Morning Fitness",
                 LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "John", "Doe");
     }
 }

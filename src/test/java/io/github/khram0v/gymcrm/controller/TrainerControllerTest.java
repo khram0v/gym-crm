@@ -11,6 +11,7 @@ import io.github.khram0v.gymcrm.dto.response.RegistrationResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerProfileResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.repository.TrainingRepository;
 import io.github.khram0v.gymcrm.security.Role;
 import io.github.khram0v.gymcrm.security.jwt.JwtAuthenticationFilter;
 import io.github.khram0v.gymcrm.service.TrainerService;
@@ -57,6 +58,7 @@ class TrainerControllerTest {
 
     @MockitoBean private TrainerService trainerService;
     @MockitoBean private TrainingService trainingService;
+    @MockitoBean private TrainingRepository trainingRepository;
     @MockitoBean private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     // ~~~~~ register ~~~~~
@@ -236,7 +238,7 @@ class TrainerControllerTest {
         when(trainingService.getTrainerTrainings(
                 "Jane.Smith", LocalDate.of(2024, Month.JANUARY, 1), LocalDate.of(2024, Month.DECEMBER, 31),
                 "John", "Doe"))
-                .thenReturn(List.of(new TrainerTrainingResponse("Morning Fitness",
+                .thenReturn(List.of(new TrainerTrainingResponse(42L, "Morning Fitness",
                         LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "John", "Doe")));
 
         mockMvc.perform(get("/api/v1/trainers/{username}/trainings", "Jane.Smith")

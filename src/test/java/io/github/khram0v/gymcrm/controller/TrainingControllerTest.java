@@ -5,7 +5,13 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.khram0v.gymcrm.dto.request.AddTrainingRequest;
 import io.github.khram0v.gymcrm.dto.response.TrainingTypeResponse;
+import io.github.khram0v.gymcrm.exception.ConflictException;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.model.Trainee;
+import io.github.khram0v.gymcrm.model.Trainer;
+import io.github.khram0v.gymcrm.model.Training;
+import io.github.khram0v.gymcrm.model.TrainingType;
+import io.github.khram0v.gymcrm.repository.TrainingRepository;
 import io.github.khram0v.gymcrm.security.Role;
 import io.github.khram0v.gymcrm.security.jwt.JwtAuthenticationFilter;
 import io.github.khram0v.gymcrm.service.TrainingService;
@@ -24,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.List;
+import java.util.Optional;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,6 +39,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -50,6 +58,7 @@ class TrainingControllerTest {
 
     @MockitoBean private TrainingService trainingService;
     @MockitoBean private TrainingTypeService trainingTypeService;
+    @MockitoBean private TrainingRepository trainingRepository;
     @MockitoBean private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     // ~~~~~ addTraining ~~~~~
@@ -163,6 +172,71 @@ class TrainingControllerTest {
                 LocalDate.of(2024, Month.JUNE, 1), 60);
     }
 
+    // ~~~~~ deleteTraining ~~~~~
+
+    @Test
+    @WithMockUserPrincipal(username = "Jane.Smith", role = Role.TRAINER)
+    void deleteTraining_whenOwner_returns204_andCallsService() throws Exception {
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(trainingOwnedBy("Jane.Smith")));
+
+        mockMvc.perform(delete("/api/v1/trainings/{id}", 10L))
+                .andExpect(status().isNoContent());
+
+        verify(trainingService).deleteTraining(10L);
+    }
+
+    @Test
+    @WithMockUserPrincipal(username = "Someone.Else", role = Role.TRAINER)
+    void deleteTraining_whenNotOwner_returns403_andDoesNotCallService() throws Exception {
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(trainingOwnedBy("Jane.Smith")));
+
+        mockMvc.perform(delete("/api/v1/trainings/{id}", 10L))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(trainingService);
+    }
+
+    @Test
+    @WithMockUserPrincipal(username = "John.Doe", role = Role.TRAINEE)
+    void deleteTraining_whenWrongRole_returns403_andDoesNotCallService() throws Exception {
+        mockMvc.perform(delete("/api/v1/trainings/{id}", 10L))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(trainingService);
+    }
+
+    @Test
+    @WithMockUserPrincipal(username = "Jane.Smith", role = Role.TRAINER)
+    void deleteTraining_whenTrainingNotFound_returns404FromService() throws Exception {
+        when(trainingRepository.findById(99L)).thenReturn(Optional.empty());
+        doThrow(new NotFoundException("Training not found: 99"))
+                .when(trainingService).deleteTraining(99L);
+
+        mockMvc.perform(delete("/api/v1/trainings/{id}", 99L))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUserPrincipal(username = "Jane.Smith", role = Role.TRAINER)
+    void deleteTraining_whenAlreadyOccurred_returns409FromService() throws Exception {
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(trainingOwnedBy("Jane.Smith")));
+        doThrow(new ConflictException("Cannot cancel a training that has already occurred: 10"))
+                .when(trainingService).deleteTraining(10L);
+
+        mockMvc.perform(delete("/api/v1/trainings/{id}", 10L))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    @WithMockUserPrincipal(username = "admin", role = Role.ADMIN)
+    void deleteTraining_whenAdmin_returns204_regardlessOfOwnership_andSkipsOwnershipLookup() throws Exception {
+        mockMvc.perform(delete("/api/v1/trainings/{id}", 10L))
+                .andExpect(status().isNoContent());
+
+        verify(trainingService).deleteTraining(10L);
+        verifyNoInteractions(trainingRepository);
+    }
+
     // ~~~~~ getAllTrainingTypes ~~~~~
 
     @Test
@@ -179,5 +253,16 @@ class TrainingControllerTest {
                 .andExpect(jsonPath("$[1].name").value("Yoga"));
 
         verify(trainingTypeService).getAll();
+    }
+
+    // ~~~~~ helpers ~~~~~
+
+    private Training trainingOwnedBy(String trainerUsername) {
+        TrainingType fitness = new TrainingType("Fitness");
+        Trainer trainer = new Trainer("Jane", "Smith", fitness);
+        trainer.setUsername(trainerUsername);
+        Trainee trainee = new Trainee("John", "Doe", null, null);
+        trainee.setUsername("John.Doe");
+        return new Training(trainee, trainer, "Cardio", fitness, LocalDate.now().plusDays(1), 60);
     }
 }

@@ -2,6 +2,7 @@ package io.github.khram0v.gymcrm.service.impl;
 
 import io.github.khram0v.gymcrm.dto.response.TraineeTrainingResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
+import io.github.khram0v.gymcrm.exception.ConflictException;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.mapper.TrainingMapper;
 import io.github.khram0v.gymcrm.repository.TraineeRepository;
@@ -20,6 +21,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -33,6 +35,7 @@ public class TrainingServiceImpl implements TrainingService {
     private final TraineeRepository traineeRepository;
     private final TrainingMapper trainingMapper;
     private final MeterRegistry meterRegistry;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -57,6 +60,27 @@ public class TrainingServiceImpl implements TrainingService {
             meterRegistry.counter("gym.trainings.created").increment();
         } finally {
             sample.stop(meterRegistry.timer("gym.trainings.created.duration"));
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteTraining(Long trainingId) {
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            Training training = trainingRepository.findById(trainingId)
+                    .orElseThrow(() -> new NotFoundException("Training not found: " + trainingId));
+
+            if (!training.getTrainingDate().isAfter(LocalDate.now(clock))) {
+                throw new ConflictException(
+                        "Cannot cancel a training that has already occurred: " + trainingId);
+            }
+
+            trainingRepository.delete(training);
+            log.info("Deleted training '{}' (id={})", training.getTrainingName(), trainingId);
+            meterRegistry.counter("gym.trainings.deleted").increment();
+        } finally {
+            sample.stop(meterRegistry.timer("gym.trainings.deleted.duration"));
         }
     }
 

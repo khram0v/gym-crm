@@ -24,14 +24,17 @@ class TrainingMapperTest {
         trainer.setUsername("Jane.Smith");
         Trainee trainee = new Trainee("John", "Doe", null, null);
         trainee.setUsername("John.Doe");
-        return new Training(trainee, trainer, "Morning Fitness",
+        Training training = new Training(trainee, trainer, "Morning Fitness",
                 fitness, LocalDate.of(2024, Month.JUNE, 1), 60);
+        training.setId(42L);
+        return training;
     }
 
     @Test
     void toTraineeTrainingResponse_flattensTrainerNameAndType() {
         TraineeTrainingResponse response = mapper.toTraineeTrainingResponse(sampleTraining());
 
+        assertThat(response.id()).isEqualTo(42L);
         assertThat(response.trainingName()).isEqualTo("Morning Fitness");
         assertThat(response.trainingDate()).isEqualTo(LocalDate.of(2024, Month.JUNE, 1));
         assertThat(response.trainingType()).isEqualTo("Fitness");
@@ -44,6 +47,7 @@ class TrainingMapperTest {
     void toTrainerTrainingResponse_flattensTraineeNameAndType() {
         TrainerTrainingResponse response = mapper.toTrainerTrainingResponse(sampleTraining());
 
+        assertThat(response.id()).isEqualTo(42L);
         assertThat(response.trainingName()).isEqualTo("Morning Fitness");
         assertThat(response.trainingType()).isEqualTo("Fitness");
         assertThat(response.trainingDuration()).isEqualTo(60);
