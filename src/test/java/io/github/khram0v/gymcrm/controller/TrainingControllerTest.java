@@ -1,8 +1,5 @@
 package io.github.khram0v.gymcrm.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.khram0v.gymcrm.dto.request.AddTrainingRequest;
 import io.github.khram0v.gymcrm.dto.response.TrainingTypeResponse;
 import io.github.khram0v.gymcrm.exception.ConflictException;
@@ -26,6 +23,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDate;
 import java.time.Month;
@@ -52,9 +51,7 @@ class TrainingControllerTest {
 
     @Autowired private MockMvc mockMvc;
 
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .registerModule(new JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     @MockitoBean private TrainingService trainingService;
     @MockitoBean private TrainingTypeService trainingTypeService;

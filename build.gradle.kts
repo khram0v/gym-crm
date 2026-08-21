@@ -37,7 +37,6 @@ dependencies {
     implementation("io.jsonwebtoken:jjwt-api:${jjwtVersion}")
     implementation("com.github.ben-manes.caffeine:caffeine")
 
-
     compileOnly("org.projectlombok:lombok")
 
     developmentOnly("org.springframework.boot:spring-boot-docker-compose")

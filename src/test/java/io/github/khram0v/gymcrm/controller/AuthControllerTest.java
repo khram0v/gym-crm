@@ -24,6 +24,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
 
@@ -46,7 +47,7 @@ class AuthControllerTest {
 
     @Autowired private MockMvc mockMvc;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     @MockitoBean private AuthenticationManager authenticationManager;
     @MockitoBean private LoginAttemptService loginAttemptService;
