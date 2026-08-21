@@ -72,6 +72,19 @@ tasks.test {
     finalizedBy(tasks.jacocoTestReport)
 }
 
+val coverageExclusions = listOf(
+    "io/github/khram0v/gymcrm/GymCrmApplication.class",
+    "io/github/khram0v/gymcrm/model/**",
+    "io/github/khram0v/gymcrm/repository/**",
+    "io/github/khram0v/gymcrm/exception/**",
+    "io/github/khram0v/gymcrm/dto/**",
+    "io/github/khram0v/gymcrm/config/**",
+    "io/github/khram0v/gymcrm/api/**",
+    "io/github/khram0v/gymcrm/filter/**",
+    "io/github/khram0v/gymcrm/security/config/**",
+    "io/github/khram0v/gymcrm/migration/**"
+)
+
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
     reports {
@@ -81,18 +94,7 @@ tasks.jacocoTestReport {
     classDirectories.setFrom(
         files(classDirectories.files.map {
             fileTree(it) {
-                exclude(
-                    "io/github/khram0v/gymcrm/GymCrmApplication.class",
-                    "io/github/khram0v/gymcrm/model/**",
-                    "io/github/khram0v/gymcrm/repository/**",
-                    "io/github/khram0v/gymcrm/exception/**",
-                    "io/github/khram0v/gymcrm/dto/**",
-                    "io/github/khram0v/gymcrm/config/**",
-                    "io/github/khram0v/gymcrm/api/**",
-                    "io/github/khram0v/gymcrm/filter/**",
-                    "io/github/khram0v/gymcrm/security/config/**",
-                    "io/github/khram0v/gymcrm/migration/**"
-                )
+                exclude(coverageExclusions)
             }
         })
     )
@@ -110,18 +112,7 @@ tasks.jacocoTestCoverageVerification {
     classDirectories.setFrom(
         files(classDirectories.files.map {
             fileTree(it) {
-                exclude(
-                    "io/github/khram0v/gymcrm/GymCrmApplication.class",
-                    "io/github/khram0v/gymcrm/model/**",
-                    "io/github/khram0v/gymcrm/repository/**",
-                    "io/github/khram0v/gymcrm/exception/**",
-                    "io/github/khram0v/gymcrm/dto/**",
-                    "io/github/khram0v/gymcrm/config/**",
-                    "io/github/khram0v/gymcrm/api/**",
-                    "io/github/khram0v/gymcrm/filter/**",
-                    "io/github/khram0v/gymcrm/security/config/**",
-                    "io/github/khram0v/gymcrm/migration/**"
-                )
+                exclude(coverageExclusions)
             }
         })
     )
