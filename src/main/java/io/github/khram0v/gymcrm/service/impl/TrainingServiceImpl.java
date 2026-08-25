@@ -1,5 +1,8 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.client.TrainerWorkloadClient;
+import io.github.khram0v.gymcrm.client.dto.ActionType;
+import io.github.khram0v.gymcrm.client.dto.WorkloadEventRequest;
 import io.github.khram0v.gymcrm.dto.response.TraineeTrainingResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
 import io.github.khram0v.gymcrm.exception.ConflictException;
@@ -36,6 +39,7 @@ public class TrainingServiceImpl implements TrainingService {
     private final TrainingMapper trainingMapper;
     private final MeterRegistry meterRegistry;
     private final Clock clock;
+    private final TrainerWorkloadClient trainerWorkloadClient;
 
     @Override
     @Transactional
@@ -58,6 +62,10 @@ public class TrainingServiceImpl implements TrainingService {
             log.info("Added training '{}' (trainer '{}', trainee '{}')",
                     trainingName, trainerUsername, traineeUsername);
             meterRegistry.counter("gym.trainings.created").increment();
+
+            trainerWorkloadClient.notifyWorkload(new WorkloadEventRequest(
+                    trainer.getUsername(), trainer.getFirstName(), trainer.getLastName(), trainer.isActive(),
+                    trainingDate, duration, ActionType.ADD));
         } finally {
             sample.stop(meterRegistry.timer("gym.trainings.created.duration"));
         }
@@ -76,9 +84,17 @@ public class TrainingServiceImpl implements TrainingService {
                         "Cannot cancel a training that has already occurred: " + trainingId);
             }
 
+            Trainer trainer = training.getTrainer();
+            LocalDate trainingDate = training.getTrainingDate();
+            Integer duration = training.getTrainingDuration();
+
             trainingRepository.delete(training);
             log.info("Deleted training '{}' (id={})", training.getTrainingName(), trainingId);
             meterRegistry.counter("gym.trainings.deleted").increment();
+
+            trainerWorkloadClient.notifyWorkload(new WorkloadEventRequest(
+                    trainer.getUsername(), trainer.getFirstName(), trainer.getLastName(), trainer.isActive(),
+                    trainingDate, duration, ActionType.DELETE));
         } finally {
             sample.stop(meterRegistry.timer("gym.trainings.deleted.duration"));
         }

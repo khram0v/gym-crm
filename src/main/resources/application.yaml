@@ -27,6 +27,27 @@ security:
     username: admin
     password-hash: "${ADMIN_PASSWORD_HASH:}"
     enabled: true
+  service:
+    subject: gym-crm-service
+    expiration-ms: 60000
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    instance:
+      prefer-ip-address: true
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      trainerWorkload:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateTreshold: 50
+        waitDurationOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
 
 springdoc:
   swagger-ui:
