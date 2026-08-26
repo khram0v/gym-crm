@@ -118,7 +118,10 @@ public class TrainingServiceImpl implements TrainingService {
                     TrainingSpecification.trainerLastName(trainerLastName),
                     TrainingSpecification.trainingTypeName(trainingTypeName)
             );
-            return trainingMapper.toTraineeTrainingResponses(trainingRepository.findAll(spec));
+            List<TraineeTrainingResponse> results =
+                    trainingMapper.toTraineeTrainingResponses(trainingRepository.findAll(spec));
+            log.debug("Retrieved {} training(s) for trainee '{}'", results.size(), traineeUsername);
+            return results;
         } finally {
             sample.stop(meterRegistry.timer("gym.trainings.query.duration", "type", "trainee"));
         }
@@ -140,7 +143,10 @@ public class TrainingServiceImpl implements TrainingService {
                     TrainingSpecification.traineeFirstName(traineeFirstName),
                     TrainingSpecification.traineeLastName(traineeLastName)
             );
-            return trainingMapper.toTrainerTrainingResponses(trainingRepository.findAll(spec));
+            List<TrainerTrainingResponse> results =
+                    trainingMapper.toTrainerTrainingResponses(trainingRepository.findAll(spec));
+            log.debug("Retrieved {} training(s) for trainer '{}'", results.size(), trainerUsername);
+            return results;
         } finally {
             sample.stop(meterRegistry.timer("gym.trainings.query.duration", "type", "trainer"));
         }

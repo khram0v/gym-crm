@@ -77,6 +77,18 @@ but should be running for full local integration testing.
 > If Spring Cloud's startup compatibility check ever complains about the Boot/Cloud version pairing,
 > set `spring.cloud.compatibility-verifier.enabled=false`.
 
+## Observability
+
+Requests are traced using a `transactionId` across services:
+
+* **Request logging:** `RequestLoggingInterceptor` logs request start/completion.
+* **Operation logging:** service methods log business operations (`DEBUG` for reads, `INFO` for mutations).
+* **Transaction ID:** `TransactionIdFilter` generates or reuses `X-Transaction-Id`, stores it in MDC, and returns it in
+  the response.
+* **Cross-service tracing:** `gym-crm` forwards the ID to `trainer-workload-service`, allowing logs from both services
+  to be correlated.
+* **Circuit breaker:** state transitions are logged at `WARN`.
+
 ## Main Endpoints
 
 | Method | Path                                    | Description                                   |
