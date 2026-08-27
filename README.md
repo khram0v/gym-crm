@@ -21,6 +21,12 @@ A Spring Boot REST API for managing gym trainees, trainers, and training session
 
 The API runs at `http://localhost:8080`.
 
+## Running the Full System Locally
+
+This service works together with `discovery-server` and `trainer-workload-service`. For a complete local smoke test
+covering service discovery, cross-service workload sync, and end-to-end transaction tracing across all three,
+see [LOCAL_SETUP.md](LOCAL_SETUP.md).
+
 ## API Docs
 
 Swagger UI: `http://localhost:8080/swagger-ui.html`
