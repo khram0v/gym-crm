@@ -1,8 +1,5 @@
 package io.github.khram0v.gymcrm.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.khram0v.gymcrm.dto.request.ActivateRequest;
 import io.github.khram0v.gymcrm.dto.request.ChangePasswordRequest;
 import io.github.khram0v.gymcrm.dto.request.TrainerRegistrationRequest;
@@ -11,6 +8,7 @@ import io.github.khram0v.gymcrm.dto.response.RegistrationResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerProfileResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
+import io.github.khram0v.gymcrm.repository.TrainingRepository;
 import io.github.khram0v.gymcrm.security.Role;
 import io.github.khram0v.gymcrm.security.jwt.JwtAuthenticationFilter;
 import io.github.khram0v.gymcrm.service.TrainerService;
@@ -25,6 +23,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDate;
 import java.time.Month;
@@ -51,12 +51,11 @@ class TrainerControllerTest {
 
     @Autowired private MockMvc mockMvc;
 
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .registerModule(new JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     @MockitoBean private TrainerService trainerService;
     @MockitoBean private TrainingService trainingService;
+    @MockitoBean private TrainingRepository trainingRepository;
     @MockitoBean private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     // ~~~~~ register ~~~~~
@@ -236,7 +235,7 @@ class TrainerControllerTest {
         when(trainingService.getTrainerTrainings(
                 "Jane.Smith", LocalDate.of(2024, Month.JANUARY, 1), LocalDate.of(2024, Month.DECEMBER, 31),
                 "John", "Doe"))
-                .thenReturn(List.of(new TrainerTrainingResponse("Morning Fitness",
+                .thenReturn(List.of(new TrainerTrainingResponse(42L, "Morning Fitness",
                         LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "John", "Doe")));
 
         mockMvc.perform(get("/api/v1/trainers/{username}/trainings", "Jane.Smith")

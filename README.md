@@ -10,6 +10,8 @@ A Spring Boot REST API for managing gym trainees, trainers, and training session
 - MapStruct
 - OpenAPI (Swagger)
 - JUnit 5 / Mockito
+- Spring Cloud Netflix Eureka Client (service discovery)
+- Resilience4j circuit breaker (calls to trainer-workload-service)
 
 ## Getting Started
 
@@ -18,6 +20,12 @@ A Spring Boot REST API for managing gym trainees, trainers, and training session
 ```
 
 The API runs at `http://localhost:8080`.
+
+## Running the Full System Locally
+
+This service works together with `discovery-server` and `trainer-workload-service`. For a complete local smoke test
+covering service discovery, cross-service workload sync, and end-to-end transaction tracing across all three,
+see [LOCAL_SETUP.md](LOCAL_SETUP.md).
 
 ## API Docs
 
@@ -57,6 +65,36 @@ accessing a resource with the wrong role (e.g. a trainer requesting a trainee en
 A single configuration-defined `admin` account (see security.admin.* properties) bypasses these ownership checks and can
 access every trainee/trainer endpoint regardless of who owns the resource.
 
+Trainings can only be canceled while their date is still in the future; a training that has already taken place is
+immutable and cannot be deleted.
+
+## Trainer Workload Integration
+
+Whenever a training is added or canceled, gym-crm notifies `trainer-workload-service` via a REST call
+(`POST /api/v1/trainer-workloads`), authenticated with a short-lived service JWT signed with a secret shared between the
+two services (`SERVICE_JWT_SECRET`). This is a best-effort side effect: the call is wrapped in a circuit breaker, and if
+the workload service is unavailable or the circuit is open, the failure is logged and swallowed - the training
+add/cancel operation itself always succeeds regardless.
+
+Requires `discovery-server` (Eureka, port `8761`) and `trainer-workload-service` to be registered and reachable for the
+notification to actually go through; both are optional at runtime (the circuit breaker's fallback covers their absence),
+but should be running for full local integration testing.
+
+> If Spring Cloud's startup compatibility check ever complains about the Boot/Cloud version pairing,
+> set `spring.cloud.compatibility-verifier.enabled=false`.
+
+## Observability
+
+Requests are traced using a `transactionId` across services:
+
+* **Request logging:** `RequestLoggingInterceptor` logs request start/completion.
+* **Operation logging:** service methods log business operations (`DEBUG` for reads, `INFO` for mutations).
+* **Transaction ID:** `TransactionIdFilter` generates or reuses `X-Transaction-Id`, stores it in MDC, and returns it in
+  the response.
+* **Cross-service tracing:** `gym-crm` forwards the ID to `trainer-workload-service`, allowing logs from both services
+  to be correlated.
+* **Circuit breaker:** state transitions are logged at `WARN`.
+
 ## Main Endpoints
 
 | Method | Path                                    | Description                                   |
@@ -74,6 +112,7 @@ access every trainee/trainer endpoint regardless of who owns the resource.
 | GET    | `/api/v1/trainees/{username}/trainings` | List trainee trainings                        |
 | GET    | `/api/v1/trainers/{username}/trainings` | List trainer trainings                        |
 | POST   | `/api/v1/trainings`                     | Add training                                  |
+| DELETE | `/api/v1/trainings/{id}`                | Cancel (delete) a training                    |
 | GET    | `/api/v1/trainings/training-types`      | List training types                           |
 
 ## Testing

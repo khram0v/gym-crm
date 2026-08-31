@@ -1,7 +1,11 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.client.TrainerWorkloadClient;
+import io.github.khram0v.gymcrm.client.dto.ActionType;
+import io.github.khram0v.gymcrm.client.dto.WorkloadEventRequest;
 import io.github.khram0v.gymcrm.dto.response.TraineeTrainingResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
+import io.github.khram0v.gymcrm.exception.ConflictException;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.mapper.TrainingMapper;
 import io.github.khram0v.gymcrm.repository.TraineeRepository;
@@ -20,6 +24,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -33,6 +38,8 @@ public class TrainingServiceImpl implements TrainingService {
     private final TraineeRepository traineeRepository;
     private final TrainingMapper trainingMapper;
     private final MeterRegistry meterRegistry;
+    private final Clock clock;
+    private final TrainerWorkloadClient trainerWorkloadClient;
 
     @Override
     @Transactional
@@ -55,8 +62,41 @@ public class TrainingServiceImpl implements TrainingService {
             log.info("Added training '{}' (trainer '{}', trainee '{}')",
                     trainingName, trainerUsername, traineeUsername);
             meterRegistry.counter("gym.trainings.created").increment();
+
+            trainerWorkloadClient.notifyWorkload(new WorkloadEventRequest(
+                    trainer.getUsername(), trainer.getFirstName(), trainer.getLastName(), trainer.isActive(),
+                    trainingDate, duration, ActionType.ADD));
         } finally {
             sample.stop(meterRegistry.timer("gym.trainings.created.duration"));
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteTraining(Long trainingId) {
+        Timer.Sample sample = Timer.start(meterRegistry);
+        try {
+            Training training = trainingRepository.findById(trainingId)
+                    .orElseThrow(() -> new NotFoundException("Training not found: " + trainingId));
+
+            if (!training.getTrainingDate().isAfter(LocalDate.now(clock))) {
+                throw new ConflictException(
+                        "Cannot cancel a training that has already occurred: " + trainingId);
+            }
+
+            Trainer trainer = training.getTrainer();
+            LocalDate trainingDate = training.getTrainingDate();
+            Integer duration = training.getTrainingDuration();
+
+            trainingRepository.delete(training);
+            log.info("Deleted training '{}' (id={})", training.getTrainingName(), trainingId);
+            meterRegistry.counter("gym.trainings.deleted").increment();
+
+            trainerWorkloadClient.notifyWorkload(new WorkloadEventRequest(
+                    trainer.getUsername(), trainer.getFirstName(), trainer.getLastName(), trainer.isActive(),
+                    trainingDate, duration, ActionType.DELETE));
+        } finally {
+            sample.stop(meterRegistry.timer("gym.trainings.deleted.duration"));
         }
     }
 
@@ -78,7 +118,10 @@ public class TrainingServiceImpl implements TrainingService {
                     TrainingSpecification.trainerLastName(trainerLastName),
                     TrainingSpecification.trainingTypeName(trainingTypeName)
             );
-            return trainingMapper.toTraineeTrainingResponses(trainingRepository.findAll(spec));
+            List<TraineeTrainingResponse> results =
+                    trainingMapper.toTraineeTrainingResponses(trainingRepository.findAll(spec));
+            log.debug("Retrieved {} training(s) for trainee '{}'", results.size(), traineeUsername);
+            return results;
         } finally {
             sample.stop(meterRegistry.timer("gym.trainings.query.duration", "type", "trainee"));
         }
@@ -100,7 +143,10 @@ public class TrainingServiceImpl implements TrainingService {
                     TrainingSpecification.traineeFirstName(traineeFirstName),
                     TrainingSpecification.traineeLastName(traineeLastName)
             );
-            return trainingMapper.toTrainerTrainingResponses(trainingRepository.findAll(spec));
+            List<TrainerTrainingResponse> results =
+                    trainingMapper.toTrainerTrainingResponses(trainingRepository.findAll(spec));
+            log.debug("Retrieved {} training(s) for trainer '{}'", results.size(), trainerUsername);
+            return results;
         } finally {
             sample.stop(meterRegistry.timer("gym.trainings.query.duration", "type", "trainer"));
         }

@@ -1,7 +1,11 @@
 package io.github.khram0v.gymcrm.service.impl;
 
+import io.github.khram0v.gymcrm.client.TrainerWorkloadClient;
+import io.github.khram0v.gymcrm.client.dto.ActionType;
+import io.github.khram0v.gymcrm.client.dto.WorkloadEventRequest;
 import io.github.khram0v.gymcrm.dto.response.TraineeTrainingResponse;
 import io.github.khram0v.gymcrm.dto.response.TrainerTrainingResponse;
+import io.github.khram0v.gymcrm.exception.ConflictException;
 import io.github.khram0v.gymcrm.exception.NotFoundException;
 import io.github.khram0v.gymcrm.mapper.TrainingMapper;
 import io.github.khram0v.gymcrm.model.Trainee;
@@ -24,8 +28,11 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Month;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,7 +52,9 @@ class TrainingServiceImplTest {
     @Mock private TraineeRepository traineeRepository;
     @Mock private TrainerRepository trainerRepository;
     @Mock private TrainingMapper trainingMapper;
+    @Mock private TrainerWorkloadClient trainerWorkloadClient;
     @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    @Spy private Clock clock = Clock.fixed(Instant.parse("2024-06-15T00:00:00Z"), ZoneOffset.UTC);
 
     @InjectMocks private TrainingServiceImpl trainingService;
 
@@ -77,7 +87,7 @@ class TrainingServiceImplTest {
     // ~~~~~ addTraining ~~~~~
 
     @Test
-    void addTraining_resolvesParties_derivesTypeFromTrainerSpecialization_andSaves() {
+    void addTraining_resolvesParties_derivesTypeFromTrainerSpecialization_savesAndNotifiesWorkloadService() {
         when(trainerRepository.findByUsername("Jane.Smith")).thenReturn(Optional.of(trainer));
         when(traineeRepository.findByUsername("John.Doe")).thenReturn(Optional.of(trainee));
         when(trainingRepository.save(any(Training.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -94,12 +104,16 @@ class TrainingServiceImplTest {
         assertThat(saved.getTrainer()).isSameAs(trainer);
         assertThat(saved.getTrainee()).isSameAs(trainee);
 
+        verify(trainerWorkloadClient).notifyWorkload(new WorkloadEventRequest(
+                "Jane.Smith", "Jane", "Smith", true,
+                LocalDate.of(2024, Month.JUNE, 1), 60, ActionType.ADD));
+
         assertThat(meterRegistry.get("gym.trainings.created").counter().count()).isEqualTo(1.0);
         assertThat(meterRegistry.get("gym.trainings.created.duration").timer().count()).isEqualTo(1);
     }
 
     @Test
-    void addTraining_whenTrainerNotFound_throwsAndDoesNotSave() {
+    void addTraining_whenTrainerNotFound_throwsAndDoesNotSave_orNotifyWorkloadService() {
         when(trainerRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> trainingService.addTraining(
@@ -107,10 +121,11 @@ class TrainingServiceImplTest {
                 .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainer not found: Ghost");
         verify(trainingRepository, never()).save(any());
+        verifyNoInteractions(trainerWorkloadClient);
     }
 
     @Test
-    void addTraining_whenTraineeNotFound_throwsAndDoesNotSave() {
+    void addTraining_whenTraineeNotFound_throwsAndDoesNotSave_orNotifyWorkloadService() {
         when(trainerRepository.findByUsername("Jane.Smith")).thenReturn(Optional.of(trainer));
         when(traineeRepository.findByUsername("Ghost")).thenReturn(Optional.empty());
 
@@ -119,6 +134,61 @@ class TrainingServiceImplTest {
                 .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining("Trainee not found: Ghost");
         verify(trainingRepository, never()).save(any());
+        verifyNoInteractions(trainerWorkloadClient);
+    }
+
+    // ~~~~~ deleteTraining ~~~~~
+
+    @Test
+    void deleteTraining_whenTrainingDateInFuture_deletes_notifiesWorkloadService_andIncrementsCounter() {
+        Training futureTraining = new Training(trainee, trainer, "Cardio Blast",
+                fitness, LocalDate.of(2024, Month.JUNE, 20), 60);
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(futureTraining));
+
+        trainingService.deleteTraining(10L);
+
+        verify(trainingRepository).delete(futureTraining);
+        verify(trainerWorkloadClient).notifyWorkload(new WorkloadEventRequest(
+                "Jane.Smith", "Jane", "Smith", true,
+                LocalDate.of(2024, Month.JUNE, 20), 60, ActionType.DELETE));
+        assertThat(meterRegistry.get("gym.trainings.deleted").counter().count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("gym.trainings.deleted.duration").timer().count()).isEqualTo(1);
+    }
+
+    @Test
+    void deleteTraining_whenTrainingDateIsToday_throwsConflict_andDoesNotDelete_orNotifyWorkloadService() {
+        Training todayTraining = new Training(trainee, trainer, "Cardio Blast",
+                fitness, LocalDate.of(2024, Month.JUNE, 15), 60);
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(todayTraining));
+
+        assertThatThrownBy(() -> trainingService.deleteTraining(10L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("already occurred");
+        verify(trainingRepository, never()).delete(ArgumentMatchers.<Training>any());
+        verifyNoInteractions(trainerWorkloadClient);
+    }
+
+    @Test
+    void deleteTraining_whenTrainingDateInPast_throwsConflict_andDoesNotDelete_orNotifyWorkloadService() {
+        Training pastTraining = new Training(trainee, trainer, "Cardio Blast",
+                fitness, LocalDate.of(2024, Month.JUNE, 10), 60);
+        when(trainingRepository.findById(10L)).thenReturn(Optional.of(pastTraining));
+
+        assertThatThrownBy(() -> trainingService.deleteTraining(10L))
+                .isInstanceOf(ConflictException.class);
+        verify(trainingRepository, never()).delete(ArgumentMatchers.<Training>any());
+        verifyNoInteractions(trainerWorkloadClient);
+    }
+
+    @Test
+    void deleteTraining_whenNotFound_throwsAndDoesNotDelete_orNotifyWorkloadService() {
+        when(trainingRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> trainingService.deleteTraining(99L))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessageContaining("Training not found: 99");
+        verify(trainingRepository, never()).delete(ArgumentMatchers.<Training>any());
+        verifyNoInteractions(trainerWorkloadClient);
     }
 
     // ~~~~~ getTraineeTrainings ~~~~~
@@ -189,12 +259,12 @@ class TrainingServiceImplTest {
     // ~~~~~ helpers ~~~~~
 
     private TraineeTrainingResponse traineeTrainingStub() {
-        return new TraineeTrainingResponse("Morning Fitness",
+        return new TraineeTrainingResponse(1L, "Morning Fitness",
                 LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "Jane", "Smith");
     }
 
     private TrainerTrainingResponse trainerTrainingStub() {
-        return new TrainerTrainingResponse("Morning Fitness",
+        return new TrainerTrainingResponse(1L, "Morning Fitness",
                 LocalDate.of(2024, Month.JUNE, 1), "Fitness", 60, "John", "Doe");
     }
 }
