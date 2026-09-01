@@ -6,12 +6,14 @@ import io.github.khram0v.gymcrm.client.messaging.MessagingProperties;
 import jakarta.jms.JMSException;
 import jakarta.jms.Session;
 import jakarta.jms.TextMessage;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.MDC;
 import org.springframework.jms.UncategorizedJmsException;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.core.MessageCreator;
@@ -27,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -44,6 +47,11 @@ class TrainerWorkloadClientImplTest {
     @BeforeEach
     void setUp() {
         client = new TrainerWorkloadClientImpl(jmsTemplate, objectMapper, messagingProperties);
+    }
+
+    @AfterEach
+    void tearDown() {
+        MDC.clear();
     }
 
     private WorkloadEventRequest sampleRequest() {
@@ -76,6 +84,40 @@ class TrainerWorkloadClientImplTest {
 
         WorkloadEventRequest parsed = objectMapper.readValue(jsonCaptor.getValue(), WorkloadEventRequest.class);
         assertThat(parsed).isEqualTo(request);
+    }
+
+    @Test
+    void notifyWorkload_whenTransactionIdInMdc_setsItAsJmsProperty() throws JMSException {
+        MDC.put("transactionId", "tx-123");
+
+        client.notifyWorkload(sampleRequest());
+
+        ArgumentCaptor<MessageCreator> creatorCaptor = ArgumentCaptor.forClass(MessageCreator.class);
+        verify(jmsTemplate).send(eq("trainer-workload.events"), creatorCaptor.capture());
+
+        Session session = mock(Session.class);
+        TextMessage textMessage = mock(TextMessage.class);
+        when(session.createTextMessage(any(String.class))).thenReturn(textMessage);
+
+        creatorCaptor.getValue().createMessage(session);
+
+        verify(textMessage).setStringProperty("transactionId", "tx-123");
+    }
+
+    @Test
+    void notifyWorkload_whenNoTransactionIdInMdc_doesNotSetProperty() throws JMSException {
+        client.notifyWorkload(sampleRequest());
+
+        ArgumentCaptor<MessageCreator> creatorCaptor = ArgumentCaptor.forClass(MessageCreator.class);
+        verify(jmsTemplate).send(eq("trainer-workload.events"), creatorCaptor.capture());
+
+        Session session = mock(Session.class);
+        TextMessage textMessage = mock(TextMessage.class);
+        when(session.createTextMessage(any(String.class))).thenReturn(textMessage);
+
+        creatorCaptor.getValue().createMessage(session);
+
+        verify(textMessage, never()).setStringProperty(any(), any());
     }
 
     @Test

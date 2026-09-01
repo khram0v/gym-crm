@@ -10,8 +10,7 @@ A Spring Boot REST API for managing gym trainees, trainers, and training session
 - MapStruct
 - OpenAPI (Swagger)
 - JUnit 5 / Mockito
-- Spring Cloud Netflix Eureka Client (service discovery)
-- Resilience4j circuit breaker (calls to trainer-workload-service)
+- Spring JMS + ActiveMQ
 
 ## Getting Started
 
@@ -23,9 +22,8 @@ The API runs at `http://localhost:8080`.
 
 ## Running the Full System Locally
 
-This service works together with `discovery-server` and `trainer-workload-service`. For a complete local smoke test
-covering service discovery, cross-service workload sync, and end-to-end transaction tracing across all three,
-see [LOCAL_SETUP.md](LOCAL_SETUP.md).
+This service publishes trainer workload events to `trainer-workload-service` over ActiveMQ. For a complete local smoke
+test covering the message queue and end-to-end cross-service tracing, see [LOCAL_SETUP.md](LOCAL_SETUP.md).
 
 ## API Docs
 
@@ -70,18 +68,21 @@ immutable and cannot be deleted.
 
 ## Trainer Workload Integration
 
-Whenever a training is added or canceled, gym-crm notifies `trainer-workload-service` via a REST call
-(`POST /api/v1/trainer-workloads`), authenticated with a short-lived service JWT signed with a secret shared between the
-two services (`SERVICE_JWT_SECRET`). This is a best-effort side effect: the call is wrapped in a circuit breaker, and if
-the workload service is unavailable or the circuit is open, the failure is logged and swallowed - the training
-add/cancel operation itself always succeeds regardless.
+Whenever a training is added or canceled, gym-crm publishes a workload event to the `trainer-workload.events` queue on
+ActiveMQ (`TrainerWorkloadClientImpl`, a JMS `TextMessage` carrying a JSON body). `trainer-workload-service`
+consumes that queue asynchronously and updates the trainer's monthly training total.
 
-Requires `discovery-server` (Eureka, port `8761`) and `trainer-workload-service` to be registered and reachable for the
-notification to actually go through; both are optional at runtime (the circuit breaker's fallback covers their absence),
-but should be running for full local integration testing.
+This is a best-effort side effect: publish failures (broker unavailable, serialization error) are logged and swallowed -
+the training add/cancel operation itself always succeeds regardless of whether the workload event could be published.
 
-> If Spring Cloud's startup compatibility check ever complains about the Boot/Cloud version pairing,
-> set `spring.cloud.compatibility-verifier.enabled=false`.
+Because the two services now communicate purely through the broker, gym-crm no longer needs to discover
+`trainer-workload-service`'s network location, load-balance calls to it, circuit-break on it, or mint a
+service-to-service JWT for it - all of that REST-era machinery has been removed. `discovery-server` (Eureka) is not
+required for this integration anymore.
+
+Requires an ActiveMQ broker (see [LOCAL_SETUP.md](LOCAL_SETUP.md)) and `trainer-workload-service` running to actually
+process events; if either is unavailable, events simply queue up on the broker (or fail to publish, per the best-effort
+behavior above) without affecting gym-crm's own API responses.
 
 ## Observability
 
@@ -91,9 +92,9 @@ Requests are traced using a `transactionId` across services:
 * **Operation logging:** service methods log business operations (`DEBUG` for reads, `INFO` for mutations).
 * **Transaction ID:** `TransactionIdFilter` generates or reuses `X-Transaction-Id`, stores it in MDC, and returns it in
   the response.
-* **Cross-service tracing:** `gym-crm` forwards the ID to `trainer-workload-service`, allowing logs from both services
-  to be correlated.
-* **Circuit breaker:** state transitions are logged at `WARN`.
+* **Cross-service tracing:** gym-crm propagates the current transaction ID as a JMS message property (`transactionId`)
+  on every workload event it publishes, so `trainer-workload-service` can correlate its own logs for that event back to
+  the originating request.
 
 ## Main Endpoints
 
