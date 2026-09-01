@@ -2,81 +2,99 @@ package io.github.khram0v.gymcrm.client;
 
 import io.github.khram0v.gymcrm.client.dto.ActionType;
 import io.github.khram0v.gymcrm.client.dto.WorkloadEventRequest;
+import io.github.khram0v.gymcrm.client.messaging.MessagingProperties;
+import jakarta.jms.JMSException;
+import jakarta.jms.Session;
+import jakarta.jms.TextMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientResponseException;
+import org.springframework.jms.UncategorizedJmsException;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.core.MessageCreator;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.LocalDate;
 import java.time.Month;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.http.HttpMethod.POST;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class TrainerWorkloadClientImplTest {
 
-    private MockRestServiceServer mockServer;
+    @Mock private JmsTemplate jmsTemplate;
+
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
+    private final MessagingProperties messagingProperties = new MessagingProperties("trainer-workload.events");
+
     private TrainerWorkloadClientImpl client;
 
     @BeforeEach
     void setUp() {
-        RestClient.Builder builder = RestClient.builder();
-        mockServer = MockRestServiceServer.bindTo(builder).build();
-        client = new TrainerWorkloadClientImpl(builder);
+        client = new TrainerWorkloadClientImpl(jmsTemplate, objectMapper, messagingProperties);
+    }
+
+    private WorkloadEventRequest sampleRequest() {
+        return new WorkloadEventRequest(
+                "Jane.Smith", "Jane", "Smith", true,
+                LocalDate.of(2024, Month.JUNE, 10), 60, ActionType.ADD);
     }
 
     @Test
-    void notifyWorkload_sendsExpectedRequest() {
-        mockServer.expect(requestTo(
-                        "http://trainer-workload-service/api/v1/trainer-workloads"))
-                .andExpect(method(POST))
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andRespond(withSuccess());
+    void notifyWorkload_sendsToConfiguredQueue() {
+        client.notifyWorkload(sampleRequest());
 
-        WorkloadEventRequest request = new WorkloadEventRequest(
-                "Jane.Smith", "Jane", "Smith", true,
-                LocalDate.of(2024, Month.JUNE, 10), 60, ActionType.ADD);
-
-        assertThatCode(() -> client.notifyWorkload(request))
-                .doesNotThrowAnyException();
-
-        mockServer.verify();
+        verify(jmsTemplate).send(eq("trainer-workload.events"), any(MessageCreator.class));
     }
 
     @Test
-    void notifyWorkload_whenServerReturnsError_propagatesException() {
-        mockServer.expect(requestTo(
-                        "http://trainer-workload-service/api/v1/trainer-workloads"))
-                .andExpect(method(POST))
-                .andRespond(withServerError());
+    void notifyWorkload_messageCreatorProducesJsonTextMessageMatchingRequest() throws JMSException {
+        WorkloadEventRequest request = sampleRequest();
+        client.notifyWorkload(request);
 
-        WorkloadEventRequest request = new WorkloadEventRequest(
-                "Jane.Smith", "Jane", "Smith", true,
-                LocalDate.of(2024, Month.JUNE, 10), 60, ActionType.ADD);
+        ArgumentCaptor<MessageCreator> creatorCaptor = ArgumentCaptor.forClass(MessageCreator.class);
+        verify(jmsTemplate).send(eq("trainer-workload.events"), creatorCaptor.capture());
 
-        assertThatThrownBy(() -> client.notifyWorkload(request))
-                .isInstanceOf(RestClientResponseException.class);
+        Session session = mock(Session.class);
+        TextMessage textMessage = mock(TextMessage.class);
+        ArgumentCaptor<String> jsonCaptor = ArgumentCaptor.forClass(String.class);
+        when(session.createTextMessage(jsonCaptor.capture())).thenReturn(textMessage);
+
+        creatorCaptor.getValue().createMessage(session);
+
+        WorkloadEventRequest parsed = objectMapper.readValue(jsonCaptor.getValue(), WorkloadEventRequest.class);
+        assertThat(parsed).isEqualTo(request);
     }
 
     @Test
-    void onNotifyWorkloadFailure_logsAndDoesNotThrow() {
-        WorkloadEventRequest request = new WorkloadEventRequest(
-                "Jane.Smith", "Jane", "Smith", true,
-                LocalDate.of(2024, Month.JUNE, 10), 60, ActionType.ADD);
+    void notifyWorkload_whenJmsSendFails_logsAndDoesNotPropagate() {
+        doThrow(new UncategorizedJmsException("boom"))
+                .when(jmsTemplate).send(any(String.class), any(MessageCreator.class));
 
-        assertThatCode(() ->
-                client.onNotifyWorkloadFailure(request, new RuntimeException("boom")))
-                .doesNotThrowAnyException();
+        assertThatCode(() -> client.notifyWorkload(sampleRequest())).doesNotThrowAnyException();
+    }
+
+    @Test
+    void notifyWorkload_whenSerializationFails_logsAndDoesNotPropagate_andNeverCallsJmsTemplate() {
+        ObjectMapper failingMapper = mock(ObjectMapper.class);
+        when(failingMapper.writeValueAsString(any())).thenThrow(new RuntimeException("boom"));
+        TrainerWorkloadClientImpl failingClient =
+                new TrainerWorkloadClientImpl(jmsTemplate, failingMapper, messagingProperties);
+
+        assertThatCode(() -> failingClient.notifyWorkload(sampleRequest())).doesNotThrowAnyException();
+
+        verifyNoInteractions(jmsTemplate);
     }
 }
