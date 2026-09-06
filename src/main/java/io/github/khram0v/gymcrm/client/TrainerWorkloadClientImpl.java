@@ -1,41 +1,47 @@
 package io.github.khram0v.gymcrm.client;
 
 import io.github.khram0v.gymcrm.client.dto.WorkloadEventRequest;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.khram0v.gymcrm.client.messaging.MessagingProperties;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.slf4j.MDC;
+import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class TrainerWorkloadClientImpl implements TrainerWorkloadClient {
 
-    private static final String WORKLOAD_URL = "http://trainer-workload-service/api/v1/trainer-workloads";
+    private static final String TRANSACTION_ID = "transactionId";
 
-    private final RestClient restClient;
-
-    public TrainerWorkloadClientImpl(@Qualifier("loadBalancedRestClientBuilder") RestClient.Builder builder) {
-        this.restClient = builder.build();
-    }
+    private final JmsTemplate jmsTemplate;
+    private final ObjectMapper objectMapper;
+    private final MessagingProperties messagingProperties;
 
     @Override
-    @CircuitBreaker(name = "trainerWorkload", fallbackMethod = "onNotifyWorkloadFailure")
     public void notifyWorkload(WorkloadEventRequest request) {
-        restClient.post()
-                .uri(WORKLOAD_URL)
-                .body(request)
-                .retrieve()
-                .toBodilessEntity();
+        try {
+            String payload = objectMapper.writeValueAsString(request);
+            String transactionId = MDC.get(TRANSACTION_ID);
 
-        log.info("Notified trainer-workload-service: {} {} min for trainer '{}' on {}",
-                request.actionType(), request.trainingDuration(), request.trainerUsername(), request.trainingDate());
-    }
+            jmsTemplate.send(messagingProperties.trainerWorkloadEventsQueue(), session -> {
+                var message = session.createTextMessage(payload);
+                if (transactionId != null) {
+                    message.setStringProperty(TRANSACTION_ID, transactionId);
+                }
+                return message;
+            });
 
-    void onNotifyWorkloadFailure(WorkloadEventRequest request, Throwable throwable) {
-        log.error("Failed to notify trainer-workload-service for trainer '{}' (action={}, date={}, duration={}); "
-                        + "workload sync skipped: {}",
-                request.trainerUsername(), request.actionType(), request.trainingDate(), request.trainingDuration(),
-                throwable.getMessage());
+            log.info("Published workload event to queue '{}': {} {} min for trainer '{}' on {}",
+                    messagingProperties.trainerWorkloadEventsQueue(), request.actionType(),
+                    request.trainingDuration(), request.trainerUsername(), request.trainingDate());
+        } catch (RuntimeException e) {
+            log.error("Failed to publish workload event for trainer '{}' (action={}, date={}, duration={}); "
+                    + "workload sync skipped: {}",
+                    request.trainerUsername(), request.actionType(), request.trainingDate(),
+                    request.trainingDuration(), e.getMessage());
+        }
     }
 }

@@ -3,6 +3,10 @@ spring:
     name: gym-crm
   profiles:
     active: local
+  activemq:
+    broker-url: ${ACTIVEMQ_BROKER_URL:tcp://localhost:61616}
+    user: ${ACTIVEMQ_USER:admin}
+    password: ${ACTIVEMQ_PASSWORD:admin}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -27,27 +31,9 @@ security:
     username: admin
     password-hash: "${ADMIN_PASSWORD_HASH:}"
     enabled: true
-  service:
-    subject: gym-crm-service
-    expiration-ms: 60000
 
-eureka:
-  client:
-    service-url:
-      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
-  instance:
-    prefer-ip-address: true
-
-resilience4j:
-  circuitbreaker:
-    instances:
-      trainerWorkload:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        failureRateTreshold: 50
-        waitDurationOpenState: 10s
-        permittedNumberOfCallsInHalfOpenState: 3
+messaging:
+  trainer-workload-events-queue: ${TRAINER_WORKLOAD_EVENTS_QUEUE:trainer-workload.events}
 
 springdoc:
   swagger-ui:
