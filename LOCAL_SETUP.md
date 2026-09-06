@@ -5,7 +5,7 @@ This guide explains how to run the complete Gym CRM system locally.
 The system consists of:
 
 * **gym-crm** — main API on port `8080`, with PostgreSQL on `5432`.
-* **trainer-workload-service** — trainer workload service on port `8082`, with PostgreSQL on `5433` and a shared
+* **trainer-workload-service** — trainer workload service on port `8082`, with MongoDB on `27017` and a shared
   ActiveMQ broker on `61616` (web console on `8161`).
 
 `gym-crm` communicates with `trainer-workload-service` asynchronously through ActiveMQ: gym-crm publishes workload
