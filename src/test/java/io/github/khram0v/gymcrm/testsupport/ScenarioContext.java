@@ -9,8 +9,16 @@ import java.net.http.HttpResponse;
 @Setter
 public class ScenarioContext {
 
-    private String username;
-    private String password;
+    private String traineeUsername;
+    private String traineePassword;
+    private String secondTraineeUsername;
+    private String secondTraineePassword;
+
+    private String trainerUsername;
+    private String trainerPassword;
+    private String secondTrainerUsername;
+    private String secondTrainerPassword;
+
     private String accessToken;
     private String refreshToken;
     private String previousRefreshToken;

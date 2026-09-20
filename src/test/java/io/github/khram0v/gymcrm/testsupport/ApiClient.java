@@ -18,9 +18,7 @@ public class ApiClient {
 
     public HttpResponse<String> get(String path, String bearerToken) {
         HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri(path)).GET();
-        if (bearerToken != null) {
-            builder.header("Authorization", "Bearer " + bearerToken);
-        }
+        applyAuth(builder, bearerToken, null);
         return send(builder);
     }
 
@@ -33,25 +31,45 @@ public class ApiClient {
                 .uri(uri(path))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
+        applyAuth(builder, bearerToken, refreshTokenHeader);
+        return send(builder);
+    }
+
+    public HttpResponse<String> put(String path, Object body, String bearerToken) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(uri(path))
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
+        applyAuth(builder, bearerToken, null);
+        return send(builder);
+    }
+
+    public HttpResponse<String> patch(String path, Object body, String bearerToken) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(uri(path))
+                .header("Content-Type", "application/json")
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
+        applyAuth(builder, bearerToken, null);
+        return send(builder);
+    }
+
+    public HttpResponse<String> delete(String path, String bearerToken) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri(path)).DELETE();
+        applyAuth(builder, bearerToken, null);
+        return send(builder);
+    }
+
+    public JsonNode json(HttpResponse<String> response) {
+        return objectMapper.readTree(response.body());
+    }
+
+    private void applyAuth(HttpRequest.Builder builder, String bearerToken, String refreshTokenHeader) {
         if (bearerToken != null) {
             builder.header("Authorization", "Bearer " + bearerToken);
         }
         if (refreshTokenHeader != null) {
             builder.header("X-Refresh-Token", refreshTokenHeader);
         }
-        return send(builder);
-    }
-
-    public HttpResponse<String> delete(String path, String bearerToken) {
-        HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri(path)).DELETE();
-        if (bearerToken != null) {
-            builder.header("Authorization", "Bearer " + bearerToken);
-        }
-        return send(builder);
-    }
-
-    public JsonNode json(HttpResponse<String> response) {
-        return objectMapper.readTree(response.body());
     }
 
     private HttpResponse<String> send(HttpRequest.Builder builder) {

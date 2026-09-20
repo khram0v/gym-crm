@@ -30,27 +30,28 @@ public class AuthSteps {
         assertThat(registration.statusCode()).isEqualTo(201);
 
         JsonNode json = apiClient.json(registration);
-        scenarioContext.setUsername(json.get("username").asString());
-        scenarioContext.setPassword(json.get("password").asString());
+        scenarioContext.setTrainerUsername(json.get("username").asString());
+        scenarioContext.setTrainerPassword(json.get("password").asString());
     }
 
     @Given("I have failed to log in {int} times")
     public void iHaveFailedToLogInNTimes(int attempts) {
         for (int i = 0; i < attempts; i++) {
-            login(scenarioContext.getUsername(), "wrong-password-" + i);
+            login(scenarioContext.getTrainerUsername(), "wrong-password-" + i);
         }
     }
 
     @When("I log in with the correct password")
     public void iLogInWithTheCorrectPassword() {
-        HttpResponse<String> loginResponse = login(scenarioContext.getUsername(), scenarioContext.getPassword());
+        HttpResponse<String> loginResponse =
+                login(scenarioContext.getTrainerUsername(), scenarioContext.getTrainerPassword());
         scenarioContext.setLastResponse(loginResponse);
         captureTokensIfPresent(loginResponse);
     }
 
     @When("I log in with password {string}")
     public void iLogInWithPassword(String password) {
-        scenarioContext.setLastResponse(login(scenarioContext.getUsername(), password));
+        scenarioContext.setLastResponse(login(scenarioContext.getTrainerUsername(), password));
     }
 
     @When("I log in as unknown user {string} with password {string}")
@@ -61,7 +62,7 @@ public class AuthSteps {
     @When("I request my own trainer profile using the access token")
     public void iRequestMyOwnTrainerProfile() {
         scenarioContext.setLastResponse(apiClient.get(
-                "/api/v1/trainers/" + scenarioContext.getUsername(), scenarioContext.getAccessToken()));
+                "/api/v1/trainers/" + scenarioContext.getTrainerUsername(), scenarioContext.getAccessToken()));
     }
 
     @When("I refresh my session")
