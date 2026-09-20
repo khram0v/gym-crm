@@ -19,6 +19,8 @@ public class ScenarioContext {
     private String secondTrainerUsername;
     private String secondTrainerPassword;
 
+    private Long trainingId;
+
     private String accessToken;
     private String refreshToken;
     private String previousRefreshToken;
