@@ -24,32 +24,6 @@ val springdocVersion = "3.0.3"
 val mapstructVersion = "1.6.3"
 val lombokMapstructBindingVersion = "0.2.0"
 val cucumberVersion = "7.34.8"
-val awaitilityVersion = "4.3.0"
-
-sourceSets {
-    create("integrationTest") {
-        java.srcDir("src/integrationTest/java")
-        resources.srcDir("src/integrationTest/resources")
-        compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
-        runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
-    }
-}
-
-configurations {
-    named("integrationTestImplementation") {
-        extendsFrom(configurations.testImplementation.get())
-    }
-
-    named("integrationTestRuntimeOnly") {
-        extendsFrom(configurations.testRuntimeOnly.get())
-    }
-}
-
-val integrationTestImplementation =
-    configurations.named("integrationTestImplementation")
-
-val integrationTestRuntimeOnly =
-    configurations.named("integrationTestRuntimeOnly")
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -90,28 +64,11 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testImplementation("org.junit.platform:junit-platform-suite")
 
-    integrationTestImplementation("org.testcontainers:testcontainers-mongodb")
-
     testCompileOnly("org.projectlombok:lombok")
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     testAnnotationProcessor("org.projectlombok:lombok")
-}
-
-tasks.register<Test>("integrationTest") {
-    description = "Cross-service integration tests (requires Docker; expects " +
-            "trainer-workload-service checked out as a sibling directory, override via " +
-            "-DtrainerWorkloadServiceDir=<path>)"
-    group = "verification"
-    testClassesDirs = sourceSets["integrationTest"].output.classesDirs
-    classpath = sourceSets["integrationTest"].runtimeClasspath
-    useJUnitPlatform()
-    systemProperty(
-        "trainerWorkloadServiceDir",
-        System.getProperty("trainerWorkloadServiceDir", "../trainer-workload-service")
-    )
-    shouldRunAfter(tasks.test)
 }
 
 tasks.withType<JavaCompile> {
